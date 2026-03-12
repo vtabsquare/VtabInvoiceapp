@@ -10,8 +10,7 @@ import Sidebar from '../components/Sidebar';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import ClientModal from '../components/ClientModal';
-
-const API_BASE_URL = 'http://localhost:5000/api/admin';
+import API_BASE_URL from '../api';
 
 const AddInvoice = () => {
     const navigate = useNavigate();

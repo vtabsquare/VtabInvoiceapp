@@ -5,8 +5,7 @@ import {
     Users, Plus, Search, Mail, Phone, MapPin, Building2, Globe, Hash, X, Check, FileText, ChevronRight, MoreVertical, Briefcase
 } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
-
-const API_BASE_URL = 'http://localhost:5000/api/admin';
+import API_BASE_URL from '../api';
 
 const Clients = () => {
     const navigate = useNavigate();

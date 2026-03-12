@@ -63,9 +63,11 @@ exports.sendOTP = async (req, res) => {
             expires: Date.now() + 10 * 60 * 1000, // 10 minutes
         };
 
-        console.log("\n===========================================");
-        console.log(`OTP for ${email}: ${otp}`);
-        console.log("===========================================\n");
+        if (!isProduction) {
+            console.log("\n===========================================");
+            console.log(`OTP for ${email}: ${otp}`);
+            console.log("===========================================\n");
+        }
 
         // Try to send email - but don't fail if it doesn't work
         let emailSent = false;
@@ -101,8 +103,7 @@ exports.sendOTP = async (req, res) => {
         res.json({
             message: emailSent
                 ? "OTP sent to your email successfully!"
-                : "OTP generated! Check the backend terminal for the OTP code.",
-            otp: otp, // Always return OTP for now to simplify testing
+                : "OTP generated successfully. Please contact the administrator if you do not receive the email.",
         });
     } catch (error) {
         console.error("OTP Error:", error.message);

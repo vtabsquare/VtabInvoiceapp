@@ -7,8 +7,7 @@ import {
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
-
-const API_BASE_URL = 'http://localhost:5000/api/admin';
+import API_BASE_URL from '../api';
 
 const Profiles = () => {
     const navigate = useNavigate();

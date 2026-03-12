@@ -10,8 +10,7 @@ import Sidebar from '../components/Sidebar';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import ClientModal from '../components/ClientModal';
-
-const API_BASE_URL = 'http://localhost:5000/api/admin';
+import API_BASE_URL from '../api';
 
 const EditInvoice = () => {
     const navigate = useNavigate();
@@ -422,7 +421,6 @@ const EditInvoice = () => {
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '2rem' }} className="billed-grid">
-                        Standard practice is to stack these on mobile.
                         <div style={{ background: 'white', padding: '2rem', borderRadius: '24px', border: '1px solid #e2e8f0' }}>
                             <h3 style={{ fontSize: '1.125rem', fontWeight: 800, color: '#0f172a', marginBottom: '1.5rem' }}>Billed By</h3>
                             <select
