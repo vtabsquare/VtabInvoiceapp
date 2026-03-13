@@ -424,9 +424,9 @@ exports.addProfile = async (req, res) => {
         gstNo, teamSize, industry, taxNo
     } = req.body;
 
-    if (!companyName || !email || !contactNo || !address1 || !address2 || !city || !state || !country || !pincode || !teamSize) {
+    if (!companyName || !email || !contactNo || !address1 || !address2 || !city || !state || !country || !pincode || !teamSize || !gstNo || !taxNo) {
         console.error("Validation Failed. Missing fields.");
-        return res.status(400).json({ message: "All required fields must be filled" });
+        return res.status(400).json({ message: "All required fields must be filled (including GST and Tax No)" });
     }
 
     try {
@@ -507,8 +507,8 @@ exports.updateProfile = async (req, res) => {
         const rows = response.data.values || [];
         const rowIndex = rows.findIndex(row => row[0] === serialNo);
 
-        if (rowIndex === -1) {
-            return res.status(404).json({ message: "Profile not found" });
+        if (!updateData.companyName || !updateData.email || !updateData.contactNo || !updateData.address1 || !updateData.address2 || !updateData.city || !updateData.state || !updateData.country || !updateData.pincode || !updateData.teamSize || !updateData.gstNo || !updateData.taxNo) {
+            return res.status(400).json({ message: "All required fields must be filled (including GST and Tax No)" });
         }
 
         const sheetRowIndex = rowIndex + 2;
