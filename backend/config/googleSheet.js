@@ -4,10 +4,19 @@ require("dotenv").config();
 
 let auth;
 
-// If GOOGLE_CREDENTIALS is provided (Render / Production)
-if (process.env.GOOGLE_CREDENTIALS) {
+// If GOOGLE_CREDENTIALS is provided (Render / Production) or individual env vars
+if (process.env.GOOGLE_CREDENTIALS || (process.env.GOOGLE_CLIENT_EMAIL && process.env.GOOGLE_PRIVATE_KEY)) {
   try {
-    const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+    let credentials;
+    if (process.env.GOOGLE_CREDENTIALS) {
+      credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+    } else {
+      credentials = {
+        client_email: process.env.GOOGLE_CLIENT_EMAIL,
+        private_key: process.env.GOOGLE_PRIVATE_KEY,
+        project_id: process.env.GOOGLE_PROJECT_ID,
+      };
+    }
 
     auth = new google.auth.GoogleAuth({
       credentials: {
@@ -18,9 +27,9 @@ if (process.env.GOOGLE_CREDENTIALS) {
       scopes: ["https://www.googleapis.com/auth/spreadsheets"],
     });
 
-    console.log("✅ Google Auth initialized using environment variable.");
+    console.log("✅ Google Auth initialized using environment variables.");
   } catch (error) {
-    console.error("❌ Failed to parse GOOGLE_CREDENTIALS:", error);
+    console.error("❌ Failed to initialize Google Auth from environment:", error);
     process.exit(1);
   }
 } 

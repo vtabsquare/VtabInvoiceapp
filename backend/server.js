@@ -20,19 +20,28 @@ app.get("/", (req, res) => {
 });
 
 // Serve frontend in production
-if (process.env.NODE_ENV === "production") {
-
+if (process.env.NODE_ENV === "production" || process.env.SERVE_FRONTEND === "true") {
+    const fs = require("fs");
     const frontendPath = path.join(__dirname, "../frontend/dist");
 
-    app.use(express.static(frontendPath));
+    if (fs.existsSync(frontendPath)) {
+        app.use(express.static(frontendPath));
 
-    // Catch-all route for SPA
-    app.use((req, res) => {
-        if (!req.path.startsWith("/api")) {
-            res.sendFile(path.join(frontendPath, "index.html"));
-        }
-    });
-
+        // Catch-all route for SPA
+        app.use((req, res) => {
+            if (!req.path.startsWith("/api")) {
+                const indexPath = path.join(frontendPath, "index.html");
+                if (fs.existsSync(indexPath)) {
+                    res.sendFile(indexPath);
+                } else {
+                    res.status(404).send("Frontend build not found");
+                }
+            }
+        });
+        console.log("🚀 Frontend static files are being served from:", frontendPath);
+    } else {
+        console.log("⚠️ Frontend distribution directory not found. Skipping static file serving.");
+    }
 }
 
 app.listen(PORT, () => {
