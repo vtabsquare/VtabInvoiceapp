@@ -7,12 +7,8 @@ import {
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
-<<<<<<< HEAD
 
-const API_BASE_URL = 'http://localhost:5000/api/admin';
-=======
 import API_BASE_URL from '../api';
->>>>>>> 00b3bedf4d1cc9e0ea480cb8245c8a8bb2c04238
 
 const Profiles = () => {
     const navigate = useNavigate();
@@ -198,7 +194,9 @@ const Profiles = () => {
             otherCity: isStandardCity ? '' : profile.city,
             pincode: profile.pincode,
             gstNo: profile.gstNo || '',
-            teamSize: profile.teamSize
+            teamSize: profile.teamSize,
+            taxNo: profile.taxNo || '',
+            industry: profile.industry || ''
         });
         setError('');
         setShowModal(true);
@@ -285,11 +283,7 @@ const Profiles = () => {
                                             <div style={{ fontSize: '0.875rem', color: '#64748b' }}>{p.contactNo}</div>
                                         </td>
                                         <td style={{ padding: '1.25rem 1.5rem' }}>
-<<<<<<< HEAD
-                                            {/* <div style={{ color: '#334155', fontSize: '0.875rem' }}>TAN: <span style={{ fontWeight: 600 }}>{p.taxNo || 'N/A'}</span></div> */}
-=======
-                                            <div style={{ color: '#334155', fontSize: '0.875rem' }}>PAN: <span style={{ fontWeight: 600 }}>{p.taxNo || 'N/A'}</span></div>
->>>>>>> 00b3bedf4d1cc9e0ea480cb8245c8a8bb2c04238
+                                            <div style={{ color: '#334155', fontSize: '0.875rem' }}>TAN: <span style={{ fontWeight: 600 }}>{p.taxNo || 'N/A'}</span></div>
                                             <div style={{ color: '#64748b', fontSize: '0.875rem' }}>GST: <span style={{ fontWeight: 600 }}>{p.gstNo || 'N/A'}</span></div>
                                         </td>
                                         <td style={{ padding: '1.25rem 1.5rem' }}>
@@ -459,32 +453,18 @@ const Profiles = () => {
                                     </div>
 
                                     <div style={{ gridColumn: 'span 1' }}>
-<<<<<<< HEAD
                                         <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '0.5rem' }}>11. GST Number*</label>
                                         <div style={{ position: 'relative' }}>
                                             <Hash style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', width: '1rem', color: '#94a3b8' }} />
                                             <input type="text" style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.75rem', borderRadius: '10px', border: '1px solid #e2e8f0', outline: 'none' }} name="gstNo" value={formData.gstNo} onChange={handleChange} placeholder="e.g. 33AAACV1234F1Z5" maxLength="15" required />
-=======
-                                        <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '0.5rem' }}>11. GST Number (Optional)</label>
-                                        <div style={{ position: 'relative' }}>
-                                            <Hash style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', width: '1rem', color: '#94a3b8' }} />
-                                            <input type="text" style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.75rem', borderRadius: '10px', border: '1px solid #e2e8f0', outline: 'none' }} name="gstNo" value={formData.gstNo} onChange={handleChange} placeholder="e.g. 33AAACV1234F1Z5" maxLength="15" />
->>>>>>> 00b3bedf4d1cc9e0ea480cb8245c8a8bb2c04238
                                         </div>
                                     </div>
 
                                     <div style={{ gridColumn: 'span 1' }}>
-<<<<<<< HEAD
-                                        <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '0.5rem' }}>12. Tax No / PAN*</label>
+                                        <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '0.5rem' }}>12. Tax No / TAN*</label>
                                         <div style={{ position: 'relative' }}>
                                             <FileText style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', width: '1rem', color: '#94a3b8' }} />
                                             <input type="text" style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.75rem', borderRadius: '10px', border: '1px solid #e2e8f0', outline: 'none' }} name="taxNo" value={formData.taxNo} onChange={handleChange} placeholder="ABCDE1234F" required />
-=======
-                                        <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '0.5rem' }}>12. Tax No / PAN (Optional)</label>
-                                        <div style={{ position: 'relative' }}>
-                                            <FileText style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', width: '1rem', color: '#94a3b8' }} />
-                                            <input type="text" style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.75rem', borderRadius: '10px', border: '1px solid #e2e8f0', outline: 'none' }} name="taxNo" value={formData.taxNo} onChange={handleChange} placeholder="ABCDE1234F" />
->>>>>>> 00b3bedf4d1cc9e0ea480cb8245c8a8bb2c04238
                                         </div>
                                     </div>
                                 </div>

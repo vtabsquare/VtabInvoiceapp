@@ -3,12 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { FileText, Users, UserCircle, Clock, ChevronRight } from 'lucide-react';
 import axios from 'axios';
 import Sidebar from '../components/Sidebar';
-<<<<<<< HEAD
 
 const API_BASE_URL = 'http://localhost:5000/api/admin';
-=======
-import API_BASE_URL from '../api';
->>>>>>> 00b3bedf4d1cc9e0ea480cb8245c8a8bb2c04238
 
 const Dashboard = () => {
     const navigate = useNavigate();

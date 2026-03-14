@@ -6,12 +6,7 @@ import {
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
-<<<<<<< HEAD
-
-const API_BASE_URL = 'http://localhost:5000/api/admin';
-=======
 import API_BASE_URL from '../api';
->>>>>>> 00b3bedf4d1cc9e0ea480cb8245c8a8bb2c04238
 
 const Invoices = () => {
     const navigate = useNavigate();
@@ -120,13 +115,8 @@ const Invoices = () => {
                                         <p>Loading invoices...</p>
                                     </td>
                                 </tr>
-<<<<<<< HEAD
-                            ) : filteredInvoices.length > 0 ? filteredInvoices.map((inv, idx) => (
-                                <tr key={`${inv.serialNo}-${idx}`} style={{ borderBottom: '1px solid #f1f5f9' }}>
-=======
                             ) : filteredInvoices.length > 0 ? filteredInvoices.map((inv) => (
                                 <tr key={inv.serialNo} style={{ borderBottom: '1px solid #f1f5f9' }}>
->>>>>>> 00b3bedf4d1cc9e0ea480cb8245c8a8bb2c04238
                                     <td style={{ padding: '1.25rem 1.5rem' }}>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                                             <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#6366f1' }}>#{inv.serialNo}</span>
