@@ -4,7 +4,7 @@ import {
     X, Check, Mail, Phone, MapPin, Globe, Hash, Briefcase
 } from 'lucide-react';
 
-const API_BASE_URL = 'http://localhost:5000/api/admin';
+import API_BASE_URL from '../api';
 
 const ClientModal = ({ isOpen, onClose, onSuccess }) => {
     const [loading, setLoading] = useState(false);

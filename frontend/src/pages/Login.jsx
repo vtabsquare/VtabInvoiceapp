@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Mail, Lock, ChevronRight, RefreshCw, KeyRound, ArrowLeft } from 'lucide-react';
 import '../index.css';
 
-const API_BASE_URL = 'http://localhost:5000/api/admin';
+import API_BASE_URL from '../api';
 
 const Login = () => {
     const navigate = useNavigate();
