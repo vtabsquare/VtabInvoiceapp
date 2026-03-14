@@ -116,8 +116,8 @@ const Invoices = () => {
                                         <p>Loading invoices...</p>
                                     </td>
                                 </tr>
-                            ) : filteredInvoices.length > 0 ? filteredInvoices.map((inv) => (
-                                <tr key={inv.serialNo} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                            ) : filteredInvoices.length > 0 ? filteredInvoices.map((inv, idx) => (
+                                <tr key={`${inv.serialNo}-${idx}`} style={{ borderBottom: '1px solid #f1f5f9' }}>
                                     <td style={{ padding: '1.25rem 1.5rem' }}>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                                             <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#6366f1' }}>#{inv.serialNo}</span>

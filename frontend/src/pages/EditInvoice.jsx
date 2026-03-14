@@ -32,7 +32,13 @@ const EditInvoice = () => {
         dueDate: '',
         selectedProfile: null,
         selectedClient: null,
-        signature: null
+        signature: null,
+        accountHolderName: '',
+        accountNo: '',
+        confirmAccountNo: '',
+        branchLocation: '',
+        ifscCode: '',
+        accountType: ''
     });
 
     const [lineItems, setLineItems] = useState([]);
@@ -57,13 +63,22 @@ const EditInvoice = () => {
             setProfiles(allProfiles);
             setClients(allClients);
 
-            const selectedProfile = allProfiles.find(p => p.companyName === inv.profileName);
-            let selectedClient = allClients.find(c => c.name === inv.clientName);
+            const selectedProfile = allProfiles.find(p =>
+                p.companyName?.toLowerCase().trim() === inv.profileName?.toLowerCase().trim()
+            );
+            let selectedClient = allClients.find(c =>
+                c.name?.toLowerCase().trim() === inv.clientName?.toLowerCase().trim()
+            );
 
             if (selectClientSerial) {
                 const newClient = allClients.find(c => c.serialNo === selectClientSerial);
                 if (newClient) selectedClient = newClient;
             }
+
+            // Load existing signature: check if it's a non-empty string
+            const existingSignature = inv.signature && inv.signature.trim().length > 20
+                ? inv.signature.trim()
+                : null;
 
             setInvoiceData({
                 invoiceNo: inv.invoiceNo,
@@ -71,14 +86,23 @@ const EditInvoice = () => {
                 dueDate: inv.dueDate,
                 selectedProfile,
                 selectedClient,
-                signature: inv.signature || null
+                signature: existingSignature,
+                accountHolderName: inv.accountHolderName || '',
+                accountNo: inv.accountNo || '',
+                confirmAccountNo: inv.accountNo || '',
+                branchLocation: inv.branchLocation || '',
+                ifscCode: inv.ifscCode || '',
+                accountType: inv.accountType || ''
             });
 
             setLineItems(inv.lineItems.map(item => ({
                 id: Math.random(),
                 item: item.item,
-                amount: parseFloat(item.baseAmount) / (parseFloat(item.quantity) || 1),
+                description: item.description || '',
+                amount: parseFloat(item.amount) || 0,
                 quantity: parseFloat(item.quantity) || 1,
+                sgstRate: parseFloat(item.sgstRate) || 9,
+                cgstRate: parseFloat(item.cgstRate) || 9,
                 sgst: parseFloat(item.sgst),
                 cgst: parseFloat(item.cgst),
                 tax: parseFloat(item.tax),
@@ -99,7 +123,7 @@ const EditInvoice = () => {
     };
 
     const addLineItem = () => {
-        setLineItems([...lineItems, { id: Date.now(), item: '', quantity: 1, amount: 0, sgst: 0, cgst: 0, tax: 0, total: 0 }]);
+        setLineItems([...lineItems, { id: Date.now(), item: '', description: '', quantity: 1, amount: 0, sgstRate: 9, cgstRate: 9, sgst: 0, cgst: 0, tax: 0, total: 0 }]);
     };
 
     const removeLineItem = (itemId) => {
@@ -115,10 +139,12 @@ const EditInvoice = () => {
 
                 const qty = parseFloat(field === 'quantity' ? value : updatedItem.quantity) || 0;
                 const amt = parseFloat(field === 'amount' ? value : updatedItem.amount) || 0;
+                const sRate = parseFloat(field === 'sgstRate' ? value : updatedItem.sgstRate) || 0;
+                const cRate = parseFloat(field === 'cgstRate' ? value : updatedItem.cgstRate) || 0;
                 const baseAmount = qty * amt;
 
-                const sgst = baseAmount * 0.09;
-                const cgst = baseAmount * 0.09;
+                const sgst = baseAmount * (sRate / 100);
+                const cgst = baseAmount * (cRate / 100);
                 const tax = baseAmount * 0.10;
                 const total = baseAmount + sgst + cgst + tax;
 
@@ -169,7 +195,7 @@ const EditInvoice = () => {
                 img.src = reader.result;
                 img.onload = () => {
                     const canvas = document.createElement('canvas');
-                    const MAX_WIDTH = 300; 
+                    const MAX_WIDTH = 300;
                     const MAX_HEIGHT = 150;
                     let width = img.width;
                     let height = img.height;
@@ -196,7 +222,7 @@ const EditInvoice = () => {
         }
     };
 
-    const generatePDF = (invoice, items, finalTotals) => {
+    const generatePDF = (invoice, items, finalTotals, logoBase64) => {
         const doc = new jsPDF();
         const primaryColor = [37, 99, 235]; // #2563eb
         const secondaryColor = [100, 116, 139]; // #64748b
@@ -205,16 +231,20 @@ const EditInvoice = () => {
         doc.setFillColor(...primaryColor);
         doc.rect(0, 0, 210, 40, 'F');
 
+        if (logoBase64) {
+            doc.addImage(logoBase64, 'JPEG', 20, 5, 30, 30);
+        }
+
         doc.setFontSize(28);
         doc.setTextColor(255, 255, 255);
         doc.setFont("helvetica", "bold");
-        doc.text("INVOICE", 20, 25);
+        doc.text("INVOICE", 190, 16, { align: "right" });
 
         doc.setFontSize(10);
         doc.setFont("helvetica", "normal");
-        doc.text(`Invoice No: ${invoice.invoiceNo}`, 190, 20, { align: "right" });
-        doc.text(`Date: ${new Date(invoice.invoiceDate).toLocaleDateString()}`, 190, 27, { align: "right" });
-        if (invoice.dueDate) doc.text(`Due Date: ${new Date(invoice.dueDate).toLocaleDateString()}`, 190, 34, { align: "right" });
+        doc.text(`Invoice No: ${invoice.invoiceNo}`, 190, 23, { align: "right" });
+        doc.text(`Date: ${new Date(invoice.invoiceDate).toLocaleDateString()}`, 190, 29, { align: "right" });
+        if (invoice.dueDate) doc.text(`Due Date: ${new Date(invoice.dueDate).toLocaleDateString()}`, 190, 35, { align: "right" });
 
         // Bill To / Billed By
         let currentY = 55;
@@ -253,11 +283,11 @@ const EditInvoice = () => {
 
         // Table
         const tableRows = items.map(item => [
-            item.item,
+            { content: `${item.item}\n${item.description || ''}`, styles: { fontStyle: 'bold' } },
             item.quantity,
             formatCurrency(item.amount),
-            `9%`,
-            `9%`,
+            `${item.sgstRate || 9}%`,
+            `${item.cgstRate || 9}%`,
             `10%`,
             formatCurrency(item.total)
         ]);
@@ -282,49 +312,89 @@ const EditInvoice = () => {
             didDrawPage: (data) => { currentY = data.cursor.y + 15; }
         });
 
-        // Totals Section
-        if (currentY > 230) {
+        // Ensure we have space for the Totals/Bank Details
+        if (currentY > 210) {
             doc.addPage();
             currentY = 20;
         }
 
-        const statsX = 130;
-        doc.setFontSize(10);
-        doc.setTextColor(...secondaryColor);
+        const tablesStartY = currentY;
 
-        const drawRow = (label, value, y, isBold = false) => {
-            doc.setFont("helvetica", isBold ? "bold" : "normal");
-            if (isBold) doc.setTextColor(0, 0, 0);
-            doc.text(label, statsX, y);
-            doc.text(`INR ${value}`, 190, y, { align: "right" });
-            doc.setTextColor(...secondaryColor);
-        };
+        // Bank Details & Totals side-by-side
+        let bankDetailsBody = [];
+        if (invoice.accountHolderName) bankDetailsBody.push(["Account Name", invoice.accountHolderName]);
+        bankDetailsBody.push(["Account No", invoice.accountNo]);
+        if (invoice.ifscCode) bankDetailsBody.push(["IFSC Code", invoice.ifscCode]);
+        if (invoice.branchLocation) bankDetailsBody.push(["Branch", invoice.branchLocation]);
+        if (invoice.accountType) bankDetailsBody.push(["Account Type", invoice.accountType]);
 
-        drawRow("Subtotal", formatCurrency(finalTotals.subtotal), currentY);
-        drawRow("SGST (9%)", formatCurrency(finalTotals.sgst), currentY + 7);
-        drawRow("CGST (9%)", formatCurrency(finalTotals.cgst), currentY + 14);
-        drawRow("Tax (10%)", formatCurrency(finalTotals.tax), currentY + 21);
+        if (bankDetailsBody.length > 0) {
+            autoTable(doc, {
+                startY: tablesStartY,
+                head: [["Bank Details", ""]],
+                body: bankDetailsBody,
+                theme: 'grid',
+                headStyles: { fillColor: primaryColor, textColor: 255, fontStyle: 'bold' },
+                styles: { fontSize: 9, cellPadding: 3, textColor: [0, 0, 0] },
+                columnStyles: {
+                    0: { cellWidth: 35, fontStyle: 'bold', textColor: secondaryColor },
+                    1: { cellWidth: 55 }
+                },
+                tableWidth: 90,
+                margin: { left: 20 },
+                didDrawPage: (data) => { currentY = Math.max(currentY, data.cursor.y); }
+            });
+        }
 
-        doc.setDrawColor(...primaryColor);
-        doc.setLineWidth(0.5);
-        doc.line(statsX, currentY + 26, 190, currentY + 26);
+        const totalsBody = [
+            ["Subtotal", `INR ${formatCurrency(finalTotals.subtotal)}`],
+            ["SGST", `INR ${formatCurrency(finalTotals.sgst)}`],
+            ["CGST", `INR ${formatCurrency(finalTotals.cgst)}`],
+            ["Tax (10%)", `INR ${formatCurrency(finalTotals.tax)}`],
+            [{ content: "Grand Total", styles: { fontStyle: 'bold', textColor: [0, 0, 0] } }, { content: `INR ${formatCurrency(finalTotals.total)}`, styles: { fontStyle: 'bold', textColor: [0, 0, 0] } }]
+        ];
 
-        drawRow("Grand Total", formatCurrency(finalTotals.total), currentY + 34, true);
+        autoTable(doc, {
+            startY: tablesStartY,
+            body: totalsBody,
+            theme: 'grid',
+            styles: { fontSize: 9, cellPadding: 3, textColor: secondaryColor },
+            columnStyles: {
+                0: { halign: 'left', cellWidth: 35 },
+                1: { halign: 'right', cellWidth: 45, textColor: [0, 0, 0] }
+            },
+            tableWidth: 80,
+            margin: { left: 120 },
+            didDrawPage: (data) => { currentY = Math.max(currentY, data.cursor.y); }
+        });
+
+        // Advance Y for Signature
+        currentY += 15;
+        if (currentY > 240) {
+            doc.addPage();
+            currentY = 20;
+        }
 
         // Signature Section
         if (invoice.signature) {
-            const signatureY = 245;
-            doc.addImage(invoice.signature, 'PNG', 140, signatureY, 40, 20);
+            doc.addImage(invoice.signature, 'PNG', 140, currentY, 40, 20);
             doc.setFontSize(10);
             doc.setFont("helvetica", "bold");
             doc.setTextColor(0, 0, 0);
-            doc.text("Authorized Signature", 160, signatureY + 25, { align: "center" });
+            doc.text("Authorized Signature", 160, currentY + 25, { align: "center" });
         }
 
         // Footer
-        doc.setFontSize(9);
-        doc.setTextColor(...secondaryColor);
-        doc.text("Thank you for your business!", 105, 285, { align: "center" });
+        const pageHeight = doc.internal.pageSize.height;
+        doc.setFillColor(...primaryColor);
+        doc.rect(0, pageHeight - 20, 210, 20, 'F');
+        doc.setFontSize(11);
+        doc.setTextColor(255, 255, 255);
+        doc.setFont("helvetica", "bold");
+        doc.text("VTAB SQUARE", 105, pageHeight - 12, { align: "center" });
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "normal");
+        doc.text("TRANSFORMING IT INTO A STRATEGIC ADVANTAGE", 105, pageHeight - 6, { align: "center" });
 
         doc.save(`Invoice_${invoice.invoiceNo}.pdf`);
     };
@@ -345,6 +415,28 @@ const EditInvoice = () => {
             alert("Please fill all line item details correctly (Name, Quantity, and Amount)");
             return;
         }
+        if (invoiceData.accountNo && (invoiceData.accountNo.length < 9 || invoiceData.accountNo.length > 18)) {
+            alert("Account No must be between 9 and 18 digits.");
+            return;
+        }
+        if (invoiceData.accountNo !== invoiceData.confirmAccountNo) {
+            alert("Account No and Confirm Account No must match.");
+            return;
+        }
+        if (invoiceData.ifscCode && invoiceData.ifscCode.length !== 11) {
+            alert("IFSC Code must be exactly 11 characters.");
+            return;
+        }
+
+        const alphaRegex = /^[a-zA-Z\s]*$/;
+        if (invoiceData.accountHolderName && !alphaRegex.test(invoiceData.accountHolderName)) {
+            alert("Account Holder Name must contain only alphabets.");
+            return;
+        }
+        if (invoiceData.branchLocation && !alphaRegex.test(invoiceData.branchLocation)) {
+            alert("Branch Location must contain only alphabets.");
+            return;
+        }
 
         setLoading(true);
         try {
@@ -356,15 +448,37 @@ const EditInvoice = () => {
                 clientName: invoiceData.selectedClient.name,
                 lineItems: lineItems.map(i => ({
                     item: i.item,
+                    description: i.description,
                     quantity: i.quantity,
-                    amount: i.amount
+                    amount: i.amount,
+                    sgstRate: i.sgstRate,
+                    cgstRate: i.cgstRate
                 })),
-                signature: invoiceData.signature
+                signature: invoiceData.signature,
+                accountHolderName: invoiceData.accountHolderName,
+                accountNo: invoiceData.accountNo,
+                confirmAccountNo: invoiceData.confirmAccountNo,
+                branchLocation: invoiceData.branchLocation,
+                ifscCode: invoiceData.ifscCode,
+                accountType: invoiceData.accountType
             };
 
             await axios.put(`${API_BASE_URL}/invoices/${serialNo}`, finalData);
 
-            generatePDF(invoiceData, lineItems, totals);
+            let logoBase64 = null;
+            try {
+                const response = await fetch('/vtab.jpeg');
+                const blob = await response.blob();
+                logoBase64 = await new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result);
+                    reader.readAsDataURL(blob);
+                });
+            } catch (e) {
+                console.error("Failed to load logo", e);
+            }
+
+            generatePDF(invoiceData, lineItems, totals, logoBase64);
             setShowSuccessModal(true);
 
         } catch (err) {
@@ -400,7 +514,7 @@ const EditInvoice = () => {
                             <h1 style={{ fontSize: '2rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                                 Edit Invoice <FileText style={{ color: '#6366f1', width: '28px' }} />
                             </h1>
-                            <p style={{ color: '#64748b' }}>Update invoice details for Serial #{serialNo}</p>
+                            <p style={{ color: '#64748b' }}>Update invoice details for Invoice #{serialNo}</p>
                         </div>
                     </div>
                 </header>
@@ -422,7 +536,6 @@ const EditInvoice = () => {
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '2rem' }} className="billed-grid">
-                        Standard practice is to stack these on mobile.
                         <div style={{ background: 'white', padding: '2rem', borderRadius: '24px', border: '1px solid #e2e8f0' }}>
                             <h3 style={{ fontSize: '1.125rem', fontWeight: 800, color: '#0f172a', marginBottom: '1.5rem' }}>Billed By</h3>
                             <select
@@ -490,10 +603,13 @@ const EditInvoice = () => {
                         <table style={{ minWidth: '800px', width: '100%', borderCollapse: 'collapse' }}>
                             <thead>
                                 <tr style={{ borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
-                                    <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 800, color: '#475569', width: '40%' }}>ITEM (LINE ITEM)</th>
+                                    <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 800, color: '#475569', width: '25%' }}>ITEM</th>
+                                    <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 800, color: '#475569', width: '25%' }}>DESCRIPTION</th>
                                     <th style={{ padding: '1rem', textAlign: 'center', fontSize: '0.75rem', fontWeight: 800, color: '#475569' }}>QTY</th>
-                                    <th style={{ padding: '1rem', textAlign: 'right', fontSize: '0.75rem', fontWeight: 800, color: '#475569' }}>AMOUNT (BASE)</th>
-                                    <th style={{ padding: '1rem', textAlign: 'right', fontSize: '0.75rem', fontWeight: 800, color: '#475569' }}>TOTAL (INC TAX)</th>
+                                    <th style={{ padding: '1rem', textAlign: 'right', fontSize: '0.75rem', fontWeight: 800, color: '#475569' }}>PRICE</th>
+                                    <th style={{ padding: '1rem', textAlign: 'center', fontSize: '0.75rem', fontWeight: 800, color: '#475569' }}>SGST %</th>
+                                    <th style={{ padding: '1rem', textAlign: 'center', fontSize: '0.75rem', fontWeight: 800, color: '#475569' }}>CGST %</th>
+                                    <th style={{ padding: '1rem', textAlign: 'right', fontSize: '0.75rem', fontWeight: 800, color: '#475569' }}>TOTAL</th>
                                     <th style={{ padding: '1rem', width: '50px' }}></th>
                                 </tr>
                             </thead>
@@ -503,10 +619,19 @@ const EditInvoice = () => {
                                         <td style={{ padding: '1rem' }}>
                                             <input
                                                 type="text"
-                                                placeholder="Item Name / Service"
+                                                placeholder="Item Name"
                                                 value={item.item}
                                                 onChange={(e) => handleItemChange(item.id, 'item', e.target.value)}
                                                 style={{ width: '100%', border: 'none', outline: 'none', fontWeight: 600 }}
+                                            />
+                                        </td>
+                                        <td style={{ padding: '1rem' }}>
+                                            <input
+                                                type="text"
+                                                placeholder="Brief description"
+                                                value={item.description}
+                                                onChange={(e) => handleItemChange(item.id, 'description', e.target.value)}
+                                                style={{ width: '100%', border: 'none', outline: 'none', fontSize: '0.875rem' }}
                                             />
                                         </td>
                                         <td style={{ padding: '1rem', textAlign: 'center' }}>
@@ -514,7 +639,7 @@ const EditInvoice = () => {
                                                 type="number"
                                                 value={item.quantity}
                                                 onChange={(e) => handleItemChange(item.id, 'quantity', e.target.value)}
-                                                style={{ width: '60px', border: 'none', outline: 'none', textAlign: 'center', background: '#f8fafc', borderRadius: '6px', padding: '0.25rem' }}
+                                                style={{ width: '50px', border: 'none', outline: 'none', textAlign: 'center', background: '#f8fafc', borderRadius: '6px', padding: '0.25rem' }}
                                             />
                                         </td>
                                         <td style={{ padding: '1rem', textAlign: 'right' }}>
@@ -522,7 +647,23 @@ const EditInvoice = () => {
                                                 type="number"
                                                 value={item.amount}
                                                 onChange={(e) => handleItemChange(item.id, 'amount', e.target.value)}
-                                                style={{ width: '100px', border: 'none', outline: 'none', textAlign: 'right', fontWeight: 600 }}
+                                                style={{ width: '80px', border: 'none', outline: 'none', textAlign: 'right', fontWeight: 600 }}
+                                            />
+                                        </td>
+                                        <td style={{ padding: '1rem', textAlign: 'center' }}>
+                                            <input
+                                                type="number"
+                                                value={item.sgstRate}
+                                                onChange={(e) => handleItemChange(item.id, 'sgstRate', e.target.value)}
+                                                style={{ width: '45px', border: 'none', outline: 'none', textAlign: 'center', background: '#f0f9ff', borderRadius: '6px', padding: '0.25rem', color: '#0369a1', fontWeight: 700 }}
+                                            />
+                                        </td>
+                                        <td style={{ padding: '1rem', textAlign: 'center' }}>
+                                            <input
+                                                type="number"
+                                                value={item.cgstRate}
+                                                onChange={(e) => handleItemChange(item.id, 'cgstRate', e.target.value)}
+                                                style={{ width: '45px', border: 'none', outline: 'none', textAlign: 'center', background: '#f0f9ff', borderRadius: '6px', padding: '0.25rem', color: '#0369a1', fontWeight: 700 }}
                                             />
                                         </td>
                                         <td style={{ padding: '1rem', textAlign: 'right', fontWeight: 700 }}>
@@ -553,9 +694,9 @@ const EditInvoice = () => {
                         {/* Signature Upload Area */}
                         <div style={{ background: 'white', padding: '2rem', borderRadius: '24px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                             <h3 style={{ fontSize: '1.125rem', fontWeight: 800, color: '#0f172a', marginBottom: '1.5rem' }}>Authorized Signature</h3>
-                            
+
                             {!invoiceData.signature ? (
-                                <div 
+                                <div
                                     onClick={() => document.getElementById('signatureInput').click()}
                                     style={{ border: '2px dashed #e2e8f0', borderRadius: '16px', padding: '2rem', textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s', background: '#f8fafc' }}
                                     onMouseOver={(e) => e.currentTarget.style.borderColor = '#6366f1'}
@@ -566,22 +707,22 @@ const EditInvoice = () => {
                                     </div>
                                     <p style={{ fontWeight: 700, color: '#475569', marginBottom: '0.25rem' }}>Upload Signature</p>
                                     <p style={{ fontSize: '0.75rem', color: '#94a3b8' }}>PNG or JPG (Recommended: transparent background)</p>
-                                    <input 
-                                        type="file" 
-                                        id="signatureInput" 
-                                        accept="image/*" 
-                                        style={{ display: 'none' }} 
+                                    <input
+                                        type="file"
+                                        id="signatureInput"
+                                        accept="image/*"
+                                        style={{ display: 'none' }}
                                         onChange={handleSignatureUpload}
                                     />
                                 </div>
                             ) : (
                                 <div style={{ position: 'relative', background: '#f8fafc', borderRadius: '16px', padding: '1.5rem', textAlign: 'center' }}>
-                                    <img 
-                                        src={invoiceData.signature} 
-                                        alt="Signature" 
-                                        style={{ maxHeight: '100px', maxWidth: '100%', objectFit: 'contain' }} 
+                                    <img
+                                        src={invoiceData.signature}
+                                        alt="Signature"
+                                        style={{ maxHeight: '100px', maxWidth: '100%', objectFit: 'contain' }}
                                     />
-                                    <button 
+                                    <button
                                         type="button"
                                         onClick={() => setInvoiceData(prev => ({ ...prev, signature: null }))}
                                         style={{ position: 'absolute', top: '0.75rem', right: '0.75rem', background: '#fee2e2', color: '#ef4444', border: 'none', padding: '0.4rem', borderRadius: '8px', cursor: 'pointer' }}
@@ -600,11 +741,11 @@ const EditInvoice = () => {
                                 <span style={{ fontWeight: 600, color: '#0f172a' }}>₹{formatCurrency(totals.subtotal)}</span>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem', color: '#64748b' }}>
-                                <span>SGST (9%)</span>
+                                <span>SGST</span>
                                 <span style={{ fontWeight: 600, color: '#0f172a' }}>₹{formatCurrency(totals.sgst)}</span>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem', color: '#64748b' }}>
-                                <span>CGST (9%)</span>
+                                <span>CGST</span>
                                 <span style={{ fontWeight: 600, color: '#0f172a' }}>₹{formatCurrency(totals.cgst)}</span>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', color: '#64748b' }}>
@@ -614,6 +755,42 @@ const EditInvoice = () => {
                             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', background: '#2563eb', borderRadius: '12px', color: 'white' }}>
                                 <span style={{ fontWeight: 700 }}>Grand Total</span>
                                 <span style={{ fontSize: '1.25rem', fontWeight: 900 }}>₹{formatCurrency(totals.total)}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Bank Details Area */}
+                    <div style={{ background: 'white', padding: '2.5rem', borderRadius: '24px', border: '1px solid #e2e8f0', marginBottom: '3rem' }}>
+                        <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', marginBottom: '1.5rem' }}>Bank Details</h3>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '2rem' }} className="bank-details-grid">
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#475569', marginBottom: '0.5rem' }}>Account Holder Name</label>
+                                <input type="text" name="accountHolderName" value={invoiceData.accountHolderName} onChange={handleInvoiceChange} style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', outline: 'none' }} placeholder="e.g. Acme Corp" />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#475569', marginBottom: '0.5rem' }}>Account No*</label>
+                                <input type="password" name="accountNo" value={invoiceData.accountNo} onChange={handleInvoiceChange} style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', outline: 'none' }} placeholder="********" />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#475569', marginBottom: '0.5rem' }}>Confirm Account No*</label>
+                                <input type="text" name="confirmAccountNo" value={invoiceData.confirmAccountNo} onChange={handleInvoiceChange} style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', outline: 'none' }} placeholder="Account number" />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#475569', marginBottom: '0.5rem' }}>Branch Location</label>
+                                <input type="text" name="branchLocation" value={invoiceData.branchLocation} onChange={handleInvoiceChange} style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', outline: 'none' }} placeholder="City Name" />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#475569', marginBottom: '0.5rem' }}>IFSC Code</label>
+                                <input type="text" name="ifscCode" value={invoiceData.ifscCode} onChange={handleInvoiceChange} style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', outline: 'none' }} placeholder="IFSC" />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#475569', marginBottom: '0.5rem' }}>Account Type</label>
+                                <select name="accountType" value={invoiceData.accountType} onChange={handleInvoiceChange} style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', outline: 'none', background: 'white' }}>
+                                    <option value="">Select Account Type</option>
+                                    <option value="Savings">Savings</option>
+                                    <option value="Current">Current</option>
+                                    <option value="Salary">Salary</option>
+                                </select>
                             </div>
                         </div>
                     </div>
@@ -639,7 +816,7 @@ const EditInvoice = () => {
                     }
                 }
                 @media (max-width: 768px) {
-                    .invoice-meta-grid, .billed-grid {
+                    .invoice-meta-grid, .billed-grid, .bank-details-grid {
                         grid-template-columns: 1fr !important;
                         gap: 1rem !important;
                         padding: 1.5rem !important;
@@ -664,7 +841,7 @@ const EditInvoice = () => {
                         </div>
                         <h3 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0f172a', marginBottom: '0.5rem' }}>Invoice Updated!</h3>
                         <p style={{ color: '#64748b', fontSize: '1.125rem', marginBottom: '1rem' }}>Updated successfully.</p>
-                        <p style={{ fontWeight: 700, color: '#0f172a', marginBottom: '2rem' }}>Serial #{serialNo}</p>
+                        <p style={{ fontWeight: 700, color: '#0f172a', marginBottom: '2rem' }}>Invoice #{serialNo}</p>
                         <button onClick={() => { setShowSuccessModal(false); navigate('/invoices'); }} style={{ width: '100%', padding: '1rem', borderRadius: '12px', border: 'none', background: '#6366f1', color: 'white', fontWeight: 700, cursor: 'pointer' }}>View All Invoices</button>
                     </div>
                 </div>

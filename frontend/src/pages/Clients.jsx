@@ -260,7 +260,7 @@ const Clients = () => {
                                             <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{client.contact}</div>
                                         </td>
                                         <td style={{ padding: '1rem 1.5rem' }}>
-                                            <div style={{ fontSize: '0.813rem', color: '#334155' }}>PAN: <span style={{ fontWeight: 600 }}>{client.taxNo || 'N/A'}</span></div>
+                                            <div style={{ fontSize: '0.813rem', color: '#334155' }}>TAN: <span style={{ fontWeight: 600 }}>{client.taxNo || 'N/A'}</span></div>
                                             <div style={{ fontSize: '0.75rem', color: '#64748b' }}>GST: <span style={{ fontWeight: 600 }}>{client.gstNo || 'N/A'}</span></div>
                                         </td>
                                         <td style={{ padding: '1rem 1.5rem', textAlign: 'right' }}>

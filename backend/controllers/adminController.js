@@ -232,9 +232,9 @@ exports.addClient = async (req, res) => {
 
         let nextSerial = 123456;
         if (rows.length > 0) {
-            const lastSerial = parseInt(rows[rows.length - 1][0]);
-            if (!isNaN(lastSerial)) {
-                nextSerial = lastSerial + 1;
+            const validSerials = rows.map(r => parseInt(r[0])).filter(n => !isNaN(n));
+            if (validSerials.length > 0) {
+                nextSerial = Math.max(...validSerials) + 1;
             }
         }
 
@@ -291,7 +291,7 @@ exports.updateClient = async (req, res) => {
         });
 
         const rows = response.data.values || [];
-        const rowIndex = rows.findIndex(row => row[0] === serialNo);
+        const rowIndex = rows.findIndex(row => row[0]?.toString().trim() === serialNo.toString().trim());
 
         if (rowIndex === -1) {
             return res.status(404).json({ message: "Client not found" });
@@ -346,7 +346,7 @@ exports.deleteClient = async (req, res) => {
         });
 
         const rows = response.data.values || [];
-        const rowIndex = rows.findIndex(row => row[0] === serialNo);
+        const rowIndex = rows.findIndex(row => row[0]?.toString().trim() === serialNo.toString().trim());
 
         if (rowIndex === -1) {
             return res.status(404).json({ message: "Client not found" });
@@ -449,9 +449,9 @@ exports.addProfile = async (req, res) => {
 
         let nextSerial = 123456;
         if (rows.length > 0) {
-            const lastSerial = parseInt(rows[rows.length - 1][0]);
-            if (!isNaN(lastSerial)) {
-                nextSerial = lastSerial + 1;
+            const validSerials = rows.map(r => parseInt(r[0])).filter(n => !isNaN(n));
+            if (validSerials.length > 0) {
+                nextSerial = Math.max(...validSerials) + 1;
             }
         }
 
@@ -505,7 +505,7 @@ exports.updateProfile = async (req, res) => {
         });
 
         const rows = response.data.values || [];
-        const rowIndex = rows.findIndex(row => row[0] === serialNo);
+        const rowIndex = rows.findIndex(row => row[0]?.toString().trim() === serialNo.toString().trim());
 
         if (!updateData.companyName || !updateData.email || !updateData.contactNo || !updateData.address1 || !updateData.address2 || !updateData.city || !updateData.state || !updateData.country || !updateData.pincode || !updateData.teamSize || !updateData.gstNo || !updateData.taxNo) {
             return res.status(400).json({ message: "All required fields must be filled (including GST and Tax No)" });
@@ -561,7 +561,7 @@ exports.deleteProfile = async (req, res) => {
         });
 
         const rows = response.data.values || [];
-        const rowIndex = rows.findIndex(row => row[0] === serialNo);
+        const rowIndex = rows.findIndex(row => row[0]?.toString().trim() === serialNo.toString().trim());
 
         if (rowIndex === -1) {
             return res.status(404).json({ message: "Profile not found" });
@@ -600,15 +600,17 @@ exports.deleteProfile = async (req, res) => {
 
 const formatNumeric = (val) => {
     const num = parseFloat(val) || 0;
-    // Fix floating point precision by rounding to 2 decimals and converting back to number to remove .00
-    return Number(num.toFixed(2)).toString();
+    // Return as a number for better Google Sheets integration
+    return Number(num.toFixed(2));
 };
 
 exports.addInvoice = async (req, res) => {
     console.log("Add Invoice Request Received:", req.body);
     const {
         invoiceNo, invoiceDate, dueDate, profileName, clientName,
-        lineItems, signature
+        lineItems, signature,
+        accountHolderName, accountNo, confirmAccountNo,
+        branchLocation, ifscCode, accountType
     } = req.body;
 
     if (!invoiceNo || !invoiceDate || !profileName || !clientName || !lineItems || lineItems.length === 0) {
@@ -629,10 +631,16 @@ exports.addInvoice = async (req, res) => {
 
         let nextSerial = 100001;
         if (headerRows.length > 0) {
-            const lastSerial = parseInt(headerRows[headerRows.length - 1][0]);
-            if (!isNaN(lastSerial)) {
-                nextSerial = lastSerial + 1;
+            const validSerials = headerRows.map(r => parseInt(r[0])).filter(n => !isNaN(n));
+            if (validSerials.length > 0) {
+                nextSerial = Math.max(...validSerials) + 1;
             }
+        }
+        
+        // Ensure invoiceNo is unique
+        const existingInvoiceRow = headerRows.find(row => row[1]?.toString().trim() === invoiceNo.toString().trim());
+        if (existingInvoiceRow) {
+            return res.status(400).json({ message: "Invoice Number already exists." });
         }
 
         let totalAmount = 0;
@@ -644,10 +652,12 @@ exports.addInvoice = async (req, res) => {
         const detailsData = lineItems.map((item) => {
             const amt = parseFloat(item.amount) || 0;
             const qty = parseFloat(item.quantity) || 1;
+            const sRate = parseFloat(item.sgstRate) || 9;
+            const cRate = parseFloat(item.cgstRate) || 9;
             const baseAmount = Number((amt * qty).toFixed(2));
 
-            const sgst = Number((baseAmount * 0.09).toFixed(2));
-            const cgst = Number((baseAmount * 0.09).toFixed(2));
+            const sgst = Number((baseAmount * (sRate / 100)).toFixed(2));
+            const cgst = Number((baseAmount * (cRate / 100)).toFixed(2));
             const tax = Number((baseAmount * 0.10).toFixed(2));
             const total = Number((baseAmount + sgst + cgst + tax).toFixed(2));
 
@@ -670,8 +680,11 @@ exports.addInvoice = async (req, res) => {
                 formatNumeric(cgst),
                 formatNumeric(tax),
                 formatNumeric(total),
-                formatNumeric(amt),
-                qty.toString()
+                item.description || "", // M (Index 12)
+                formatNumeric(amt),      // N (Index 13)
+                qty.toString(),          // O (Index 14)
+                sRate.toString(),        // P (Index 15)
+                cRate.toString()         // Q (Index 16)
             ];
         });
 
@@ -687,7 +700,13 @@ exports.addInvoice = async (req, res) => {
             formatNumeric(totalCgst),
             formatNumeric(totalTax),
             formatNumeric(totalGrand),
-            signature || ""
+            signature || "",
+            accountHolderName || "",
+            accountNo || "",
+            confirmAccountNo || "",
+            branchLocation || "",
+            ifscCode || "",
+            accountType || ""
         ]];
 
         // Save to invoice header
@@ -722,13 +741,19 @@ exports.getInvoices = async (req, res) => {
 
         const response = await sheets.spreadsheets.values.get({
             spreadsheetId: spreadsheetId,
-            range: `${tabName}!A2:K`,
+            range: `${tabName}!A2:R`,
         });
 
         const rows = response.data.values || [];
-        const invoices = rows.map(row => ({
-            serialNo: row[0],
-            invoiceNo: row[1],
+        const invoices = rows
+            .filter(row => {
+                const serial = row[0] ? String(row[0]).trim() : "";
+                const invNo = row[1] ? String(row[1]).trim() : "";
+                return serial !== "" && invNo !== "";
+            })
+            .map(row => ({
+                serialNo: row[0],
+                invoiceNo: row[1],
             invoiceDate: row[2],
             dueDate: row[3],
             profileName: row[4],
@@ -738,7 +763,13 @@ exports.getInvoices = async (req, res) => {
             cgst: row[8],
             tax: row[9],
             total: row[10],
-            signature: row[11] || ""
+            signature: row[11] || "",
+            accountHolderName: row[12] || "",
+            accountNo: row[13] || "",
+            confirmAccountNo: row[14] || "",
+            branchLocation: row[15] || "",
+            ifscCode: row[16] || "",
+            accountType: row[17] || ""
         }));
 
         res.json(invoices);
@@ -758,10 +789,10 @@ exports.getInvoiceBySerial = async (req, res) => {
         // Get Header
         const headerRes = await sheets.spreadsheets.values.get({
             spreadsheetId,
-            range: `${headerTab}!A2:L`,
+            range: `${headerTab}!A2:R`,
         });
         const headerRows = headerRes.data.values || [];
-        const headerRow = headerRows.find(row => row[0] === serialNo);
+        const headerRow = headerRows.find(row => row[0]?.toString().trim() === serialNo.toString().trim());
 
         if (!headerRow) {
             return res.status(404).json({ message: "Invoice not found" });
@@ -779,27 +810,35 @@ exports.getInvoiceBySerial = async (req, res) => {
             cgst: headerRow[8],
             tax: headerRow[9],
             total: headerRow[10],
-            signature: headerRow[11] || ""
+            signature: headerRow[11] || "",
+            accountHolderName: headerRow[12] || "",
+            accountNo: headerRow[13] || "",
+            confirmAccountNo: headerRow[14] || "",
+            branchLocation: headerRow[15] || "",
+            ifscCode: headerRow[16] || "",
+            accountType: headerRow[17] || ""
         };
 
         // Get Details
         const detailsRes = await sheets.spreadsheets.values.get({
             spreadsheetId,
-            range: `${detailsTab}!A2:L`,
+            range: `${detailsTab}!A2:Q`,
         });
         const detailsRows = detailsRes.data.values || [];
         const lineItems = detailsRows
-            .filter(row => row[0] === serialNo)
+            .filter(row => row[0]?.toString().trim() === serialNo.toString().trim())
             .map(row => ({
                 item: row[7],
-                // Now using direct columns M (12) and N (13) if they exist, fallback to calculation
-                amount: row[12] ? parseFloat(row[12]) : (parseFloat(row[6]) / (parseFloat(row[13]) || 1)),
-                quantity: row[13] ? parseFloat(row[13]) : 1,
+                description: row[12] || "",
+                amount: row[13] ? parseFloat(row[13]) : (parseFloat(row[6]) / (parseFloat(row[14]) || 1)),
+                quantity: row[14] ? parseFloat(row[14]) : 1,
                 baseAmount: row[6],
                 sgst: row[8],
                 cgst: row[9],
                 tax: row[10],
-                total: row[11]
+                total: row[11],
+                sgstRate: row[15] ? parseFloat(row[15]) : 9,
+                cgstRate: row[16] ? parseFloat(row[16]) : 9
             }));
 
         res.json({ ...invoice, lineItems });
@@ -813,7 +852,9 @@ exports.updateInvoice = async (req, res) => {
     const { serialNo } = req.params;
     const {
         invoiceNo, invoiceDate, dueDate, profileName, clientName,
-        lineItems, signature
+        lineItems, signature,
+        accountHolderName, accountNo, confirmAccountNo,
+        branchLocation, ifscCode, accountType
     } = req.body;
 
     try {
@@ -821,15 +862,28 @@ exports.updateInvoice = async (req, res) => {
         const headerTab = "invoice header";
         const detailsTab = "invoice details";
 
-        // 1. Update Header
+        // 1. Update Header (Update ALL matching rows in case of duplicates)
+        console.log(`Update Invoice Request received for Serial: ${serialNo}`);
+        console.log("Request Body:", JSON.stringify(req.body, null, 2));
+
         const headerResponse = await sheets.spreadsheets.values.get({
             spreadsheetId,
-            range: `${headerTab}!A2:A`,
+            range: `${headerTab}!A:A`, // Fetch whole column A to be safe
         });
         const headerRows = headerResponse.data.values || [];
-        const headerIndex = headerRows.findIndex(row => row[0] === serialNo);
 
-        if (headerIndex === -1) {
+        // Find all indices that match serialNo (A is column 0)
+        const headerIndicesToUpdate = [];
+        headerRows.forEach((row, idx) => {
+            if (row[0]?.toString().trim() === serialNo.toString().trim()) {
+                headerIndicesToUpdate.push(idx + 1); // 1-indexed
+            }
+        });
+
+        console.log(`Matching Header Rows found at:`, headerIndicesToUpdate);
+
+        if (headerIndicesToUpdate.length === 0) {
+            console.error(`Invoice with Serial No ${serialNo} not found in header rows:`, headerRows.slice(0, 20).map(r => r[0]));
             return res.status(404).json({ message: "Invoice not found" });
         }
 
@@ -842,10 +896,12 @@ exports.updateInvoice = async (req, res) => {
         const updatedDetails = lineItems.map((item) => {
             const amt = parseFloat(item.amount) || 0;
             const qty = parseFloat(item.quantity) || 1;
+            const sRate = parseFloat(item.sgstRate) || 9;
+            const cRate = parseFloat(item.cgstRate) || 9;
             const baseAmount = Number((amt * qty).toFixed(2));
 
-            const sgst = Number((baseAmount * 0.09).toFixed(2));
-            const cgst = Number((baseAmount * 0.09).toFixed(2));
+            const sgst = Number((baseAmount * (sRate / 100)).toFixed(2));
+            const cgst = Number((baseAmount * (cRate / 100)).toFixed(2));
             const tax = Number((baseAmount * 0.10).toFixed(2));
             const total = Number((baseAmount + sgst + cgst + tax).toFixed(2));
 
@@ -868,8 +924,11 @@ exports.updateInvoice = async (req, res) => {
                 formatNumeric(cgst),
                 formatNumeric(tax),
                 formatNumeric(total),
-                formatNumeric(amt),
-                qty.toString()
+                item.description || "", // M (Index 12)
+                formatNumeric(amt),      // N (Index 13)
+                qty.toString(),          // O (Index 14)
+                sRate.toString(),        // P (Index 15)
+                cRate.toString()         // Q (Index 16)
             ];
         });
 
@@ -885,39 +944,86 @@ exports.updateInvoice = async (req, res) => {
             formatNumeric(totalCgst),
             formatNumeric(totalTax),
             formatNumeric(totalGrand),
-            signature || ""
+            signature || "",
+            accountHolderName || "",
+            accountNo || "",
+            confirmAccountNo || "",
+            branchLocation || "",
+            ifscCode || "",
+            accountType || ""
         ];
 
-        await sheets.spreadsheets.values.update({
-            spreadsheetId,
-            range: `${headerTab}!A${headerIndex + 2}:L${headerIndex + 2}`,
-            valueInputOption: "RAW",
-            requestBody: { values: [updatedHeaderRow] },
-        });
+        console.log("Updating Header Row(s) with values:", updatedHeaderRow);
 
-        // 2. Update Details (Delete old and append new)
+        // Update each matching row
+        for (const rowIdx of headerIndicesToUpdate) {
+            await sheets.spreadsheets.values.update({
+                spreadsheetId,
+                range: `${headerTab}!A${rowIdx}:R${rowIdx}`,
+                valueInputOption: "RAW",
+                requestBody: { values: [updatedHeaderRow] },
+            });
+        }
+
+        // 2. Update Details In-place
         const detailsResponse = await sheets.spreadsheets.values.get({
             spreadsheetId,
             range: `${detailsTab}!A2:A`,
         });
         const detailsRows = detailsResponse.data.values || [];
 
-        // Find indices to delete
-        const indicesToDelete = [];
+        // Find existing indices
+        const existingDetailRowIndices = [];
         detailsRows.forEach((row, index) => {
-            if (row[0] === serialNo) {
-                indicesToDelete.push(index + 2); // 1-indexed and skip header
+            if (row[0]?.toString().trim() === serialNo.toString().trim()) {
+                existingDetailRowIndices.push(index + 2); // 1-indexed and skip header
             }
         });
 
-        if (indicesToDelete.length > 0) {
+        const updates = [];
+        const appends = [];
+        for (let i = 0; i < updatedDetails.length; i++) {
+            if (i < existingDetailRowIndices.length) {
+                updates.push({
+                    range: `${detailsTab}!A${existingDetailRowIndices[i]}:Q${existingDetailRowIndices[i]}`,
+                    values: [updatedDetails[i]]
+                });
+            } else {
+                appends.push(updatedDetails[i]);
+            }
+        }
+
+        // Apply in-place updates
+        if (updates.length > 0) {
+            await sheets.spreadsheets.values.batchUpdate({
+                spreadsheetId,
+                requestBody: {
+                    valueInputOption: "RAW",
+                    data: updates
+                }
+            });
+        }
+
+        // Add any brand new lines
+        if (appends.length > 0) {
+            await sheets.spreadsheets.values.append({
+                spreadsheetId,
+                range: `${detailsTab}!A1`,
+                valueInputOption: "RAW",
+                insertDataOption: "INSERT_ROWS",
+                requestBody: { values: appends },
+            });
+        }
+
+        // Delete left-over duplicate rows if the updated invoice has fewer line items than before
+        if (existingDetailRowIndices.length > updatedDetails.length) {
+            const indicesToDelete = existingDetailRowIndices.slice(updatedDetails.length);
+            
             const sheetMeta = await sheets.spreadsheets.get({ spreadsheetId });
             const sheet = sheetMeta.data.sheets.find(s => s.properties.title === detailsTab);
             const sheetId = sheet.properties.sheetId;
 
-            // Sort indices in descending order to delete from bottom up
             indicesToDelete.sort((a, b) => b - a);
-
             const deleteRequests = indicesToDelete.map(idx => ({
                 deleteDimension: {
                     range: {
@@ -934,15 +1040,6 @@ exports.updateInvoice = async (req, res) => {
                 requestBody: { requests: deleteRequests }
             });
         }
-
-        // Append new details
-        await sheets.spreadsheets.values.append({
-            spreadsheetId,
-            range: `${detailsTab}!A1`,
-            valueInputOption: "RAW",
-            insertDataOption: "INSERT_ROWS",
-            requestBody: { values: updatedDetails },
-        });
 
         res.json({ message: "Invoice updated successfully" });
     } catch (error) {
@@ -964,7 +1061,7 @@ exports.deleteInvoice = async (req, res) => {
             range: `${headerTab}!A2:A`,
         });
         const headerRows = headerRes.data.values || [];
-        const headerIndex = headerRows.findIndex(row => row[0] === serialNo);
+        const headerIndex = headerRows.findIndex(row => row[0]?.toString().trim() === serialNo.toString().trim());
 
         if (headerIndex !== -1) {
             const sheetMeta = await sheets.spreadsheets.get({ spreadsheetId });
@@ -995,7 +1092,7 @@ exports.deleteInvoice = async (req, res) => {
         const detailsRows = detailsRes.data.values || [];
         const detailIndices = [];
         detailsRows.forEach((row, index) => {
-            if (row[0] === serialNo) detailIndices.push(index + 2);
+            if (row[0]?.toString().trim() === serialNo.toString().trim()) detailIndices.push(index + 2);
         });
 
         if (detailIndices.length > 0) {

@@ -281,7 +281,7 @@ const Profiles = () => {
                                             <div style={{ fontSize: '0.875rem', color: '#64748b' }}>{p.contactNo}</div>
                                         </td>
                                         <td style={{ padding: '1.25rem 1.5rem' }}>
-                                            <div style={{ color: '#334155', fontSize: '0.875rem' }}>PAN: <span style={{ fontWeight: 600 }}>{p.taxNo || 'N/A'}</span></div>
+                                            {/* <div style={{ color: '#334155', fontSize: '0.875rem' }}>TAN: <span style={{ fontWeight: 600 }}>{p.taxNo || 'N/A'}</span></div> */}
                                             <div style={{ color: '#64748b', fontSize: '0.875rem' }}>GST: <span style={{ fontWeight: 600 }}>{p.gstNo || 'N/A'}</span></div>
                                         </td>
                                         <td style={{ padding: '1.25rem 1.5rem' }}>
