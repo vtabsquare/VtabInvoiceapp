@@ -3,8 +3,12 @@ import axios from 'axios';
 import {
     X, Check, Mail, Phone, MapPin, Globe, Hash, Briefcase
 } from 'lucide-react';
+<<<<<<< HEAD
 
 const API_BASE_URL = 'http://localhost:5000/api/admin';
+=======
+import API_BASE_URL from '../api';
+>>>>>>> 00b3bedf4d1cc9e0ea480cb8245c8a8bb2c04238
 
 const ClientModal = ({ isOpen, onClose, onSuccess }) => {
     const [loading, setLoading] = useState(false);

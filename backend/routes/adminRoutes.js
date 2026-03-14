@@ -40,7 +40,10 @@ router.delete("/profiles/:serialNo", deleteProfile);
 // Invoice management
 router.get("/invoices", getInvoices);
 router.post("/invoices", addInvoice);
+<<<<<<< HEAD
 // Routes using serialNo (legacy, kept for delete)
+=======
+>>>>>>> 00b3bedf4d1cc9e0ea480cb8245c8a8bb2c04238
 router.get("/invoices/:serialNo", getInvoiceBySerial);
 router.put("/invoices/:serialNo", updateInvoice);
 router.delete("/invoices/:serialNo", deleteInvoice);

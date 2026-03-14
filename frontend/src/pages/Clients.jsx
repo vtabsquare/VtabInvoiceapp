@@ -5,8 +5,12 @@ import {
     Users, Plus, Search, Mail, Phone, MapPin, Building2, Globe, Hash, X, Check, FileText, ChevronRight, MoreVertical, Briefcase
 } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
+<<<<<<< HEAD
 
 const API_BASE_URL = 'http://localhost:5000/api/admin';
+=======
+import API_BASE_URL from '../api';
+>>>>>>> 00b3bedf4d1cc9e0ea480cb8245c8a8bb2c04238
 
 const Clients = () => {
     const navigate = useNavigate();
@@ -260,7 +264,11 @@ const Clients = () => {
                                             <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{client.contact}</div>
                                         </td>
                                         <td style={{ padding: '1rem 1.5rem' }}>
+<<<<<<< HEAD
                                             <div style={{ fontSize: '0.813rem', color: '#334155' }}>TAN: <span style={{ fontWeight: 600 }}>{client.taxNo || 'N/A'}</span></div>
+=======
+                                            <div style={{ fontSize: '0.813rem', color: '#334155' }}>PAN: <span style={{ fontWeight: 600 }}>{client.taxNo || 'N/A'}</span></div>
+>>>>>>> 00b3bedf4d1cc9e0ea480cb8245c8a8bb2c04238
                                             <div style={{ fontSize: '0.75rem', color: '#64748b' }}>GST: <span style={{ fontWeight: 600 }}>{client.gstNo || 'N/A'}</span></div>
                                         </td>
                                         <td style={{ padding: '1rem 1.5rem', textAlign: 'right' }}>
@@ -407,7 +415,11 @@ const Clients = () => {
                                         </h4>
                                     </div>
                                     <div className="input-group">
+<<<<<<< HEAD
                                         <label className="label">Tax No (TAN)*</label>
+=======
+                                        <label className="label">Tax No (PAN)*</label>
+>>>>>>> 00b3bedf4d1cc9e0ea480cb8245c8a8bb2c04238
                                         <input type="text" className="input" name="taxNo" value={formData.taxNo} onChange={handleChange} placeholder="e.g. CHEN12345A" maxLength="10" required />
                                     </div>
                                     <div className="input-group">

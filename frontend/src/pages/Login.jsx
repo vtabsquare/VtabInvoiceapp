@@ -3,8 +3,12 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { Mail, Lock, ChevronRight, RefreshCw, KeyRound, ArrowLeft } from 'lucide-react';
 import '../index.css';
+<<<<<<< HEAD
 
 const API_BASE_URL = 'http://localhost:5000/api/admin';
+=======
+import API_BASE_URL from '../api';
+>>>>>>> 00b3bedf4d1cc9e0ea480cb8245c8a8bb2c04238
 
 const Login = () => {
     const navigate = useNavigate();
@@ -38,7 +42,11 @@ const Login = () => {
         setError('');
         try {
             await axios.post(`${API_BASE_URL}/send-otp`, { email });
+<<<<<<< HEAD
             setMessage('OTP sent to your console / email.');
+=======
+            setMessage('OTP sent to your email.');
+>>>>>>> 00b3bedf4d1cc9e0ea480cb8245c8a8bb2c04238
             setView('otp');
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to send OTP');
@@ -229,7 +237,11 @@ const Login = () => {
                             <ArrowLeft style={{ width: '1rem', height: '1rem' }} /> Back
                         </button>
                         <h2 style={{ fontWeight: 700, fontSize: '1.25rem', color: '#0f172a', marginBottom: '0.5rem' }}>Verify OTP</h2>
+<<<<<<< HEAD
                         <p style={{ color: '#64748b', fontSize: '0.875rem', marginBottom: '1.5rem' }}>Enter the 6-digit OTP from your backend console.</p>
+=======
+                        <p style={{ color: '#64748b', fontSize: '0.875rem', marginBottom: '1.5rem' }}>Enter the 6-digit OTP sent to your email.</p>
+>>>>>>> 00b3bedf4d1cc9e0ea480cb8245c8a8bb2c04238
 
                         <div className="input-group">
                             <label className="label">6-Digit Code</label>
