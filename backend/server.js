@@ -14,23 +14,25 @@ app.use(express.json());
 // API Routes
 app.use("/api/admin", adminRoutes);
 
-// Health route
+// Root route
 app.get("/", (req, res) => {
     res.send("VTAB Square Invoice API is running...");
 });
 
 // Serve frontend in production
 if (process.env.NODE_ENV === "production") {
+
     const frontendPath = path.join(__dirname, "../frontend/dist");
 
     app.use(express.static(frontendPath));
 
-    // React/Vite fallback route
-    app.get("*", (req, res) => {
+    // Catch-all route for SPA
+    app.use((req, res) => {
         if (!req.path.startsWith("/api")) {
             res.sendFile(path.join(frontendPath, "index.html"));
         }
     });
+
 }
 
 app.listen(PORT, () => {
