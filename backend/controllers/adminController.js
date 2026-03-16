@@ -681,13 +681,13 @@ exports.addInvoice = async (req, res) => {
             const sgst = Number((baseAmount * (sRate / 100)).toFixed(2));
             const cgst = Number((baseAmount * (cRate / 100)).toFixed(2));
             const tax = Number((baseAmount * 0.10).toFixed(2));
-            const total = Number((baseAmount + sgst + cgst - tax).toFixed(2));
+            const total = Number((baseAmount + sgst + cgst).toFixed(2));
 
             totalAmount = Number((totalAmount + baseAmount).toFixed(2));
             totalSgst = Number((totalSgst + sgst).toFixed(2));
             totalCgst = Number((totalCgst + cgst).toFixed(2));
             totalTax = Number((totalTax + tax).toFixed(2));
-            totalGrand = Number((totalGrand + total).toFixed(2));
+            totalGrand = Number((totalAmount + totalSgst + totalCgst).toFixed(2));
 
             return [
                 nextSerial.toString(),
@@ -925,13 +925,13 @@ exports.updateInvoice = async (req, res) => {
             const sgst = Number((baseAmount * (sRate / 100)).toFixed(2));
             const cgst = Number((baseAmount * (cRate / 100)).toFixed(2));
             const tax = Number((baseAmount * 0.10).toFixed(2));
-            const total = Number((baseAmount + sgst + cgst - tax).toFixed(2));
+            const total = Number((baseAmount + sgst + cgst).toFixed(2));
 
             totalAmount = Number((totalAmount + baseAmount).toFixed(2));
             totalSgst = Number((totalSgst + sgst).toFixed(2));
             totalCgst = Number((totalCgst + cgst).toFixed(2));
             totalTax = Number((totalTax + tax).toFixed(2));
-            totalGrand = Number((totalGrand + total).toFixed(2));
+            totalGrand = Number((totalAmount + totalSgst + totalCgst).toFixed(2));
 
             return [
                 serialNo,

@@ -11,6 +11,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import ClientModal from '../components/ClientModal';
 import API_BASE_URL from '../api';
+import { numberToWords } from '../utils/numberToWords';
 
 const AddInvoice = () => {
     const navigate = useNavigate();
@@ -101,7 +102,7 @@ const AddInvoice = () => {
                 const sgst = baseAmount * (sRate / 100);
                 const cgst = baseAmount * (cRate / 100);
                 const tax = baseAmount * 0.10;
-                const total = baseAmount + sgst + cgst - tax;
+                const total = baseAmount + sgst + cgst;
 
                 return { ...updatedItem, sgst, cgst, tax, total };
             }
@@ -189,7 +190,7 @@ const AddInvoice = () => {
         const drawPageElements = () => {
             // --- BORDER around the entire page ---
             doc.setDrawColor(0, 0, 0);
-            doc.setLineWidth(0.5);
+            doc.setLineWidth(0.1);
             doc.rect(5, 5, pageWidth - 10, pageHeight - 10);
 
             // --- FOOTER ---
@@ -216,8 +217,8 @@ const AddInvoice = () => {
 
         // Logo on the right
         if (logoBase64) {
-            // Adjusted size for the new logo (approx 35x15)
-            doc.addImage(logoBase64, 'PNG', pageWidth - 50, 12, 35, 15);
+            // Increased size for the logo
+            doc.addImage(logoBase64, 'PNG', pageWidth - 70, 10, 55, 25);
         }
 
         // Vertical details below "Invoice"
@@ -310,6 +311,18 @@ const AddInvoice = () => {
         });
         currentY = doc.lastAutoTable.finalY + 6;
 
+        const totalAmount = finalTotals.subtotal + finalTotals.sgst + finalTotals.cgst;
+
+        // --- AMOUNT IN WORDS (Left side of totals) ---
+        const amountInWords = numberToWords(Math.round(totalAmount));
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(50, 50, 50);
+        doc.text("Amount in Words:", 12, currentY + 10);
+        doc.setFont("helvetica", "normal");
+        const splitWords = doc.splitTextToSize(amountInWords, pageWidth - 120);
+        doc.text(splitWords, 12, currentY + 16);
+
         // Check if we need a new page for totals + bank
         if (currentY > pageHeight - 80) {
             doc.addPage();
@@ -321,13 +334,13 @@ const AddInvoice = () => {
         autoTable(doc, {
             startY: currentY,
             body: [
-                ['TOTAL (INR):', { content: formatCurrency(finalTotals.subtotal + finalTotals.sgst + finalTotals.cgst), styles: { halign: 'right' } }],
+                ['TOTAL (INR):', { content: formatCurrency(finalTotals.subtotal), styles: { halign: 'right' } }],
                 ['SGST:', { content: formatCurrency(finalTotals.sgst), styles: { halign: 'right' } }],
                 ['CGST:', { content: formatCurrency(finalTotals.cgst), styles: { halign: 'right' } }],
-                ['Tax (10%) Less:', { content: `-${formatCurrency(finalTotals.tax)}`, styles: { halign: 'right', textColor: [150, 0, 0] } }],
+                ['Tax (10%) Less:', { content: formatCurrency(finalTotals.tax), styles: { halign: 'right', textColor: [150, 0, 0] } }],
                 [
                     { content: 'TOTAL DUE (INR)', styles: { fontStyle: 'bold', fillColor: [0, 0, 0], textColor: [255, 255, 255] } },
-                    { content: formatCurrency(finalTotals.total), styles: { halign: 'right', fontStyle: 'bold', fillColor: [0, 0, 0], textColor: [255, 255, 255] } }
+                    { content: formatCurrency(totalAmount), styles: { halign: 'right', fontStyle: 'bold', fillColor: [0, 0, 0], textColor: [255, 255, 255] } }
                 ],
             ],
             theme: 'grid',
@@ -479,7 +492,8 @@ const AddInvoice = () => {
 
             let logoBase64 = null;
             try {
-                const response = await fetch('/image.png');
+                const logoUrl = `${window.location.origin}/image.png`;
+                const response = await fetch(logoUrl);
                 if (!response.ok) throw new Error(`Logo not found: ${response.status}`);
                 const blob = await response.blob();
                 logoBase64 = await new Promise((resolve) => {
@@ -777,8 +791,8 @@ const AddInvoice = () => {
                                 <span style={{ fontWeight: 600, color: '#0f172a' }}>₹{formatCurrency(totals.tax)}</span>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', background: '#2563eb', borderRadius: '12px', color: 'white' }}>
-                                <span style={{ fontWeight: 700 }}>Grand Total</span>
-                                <span style={{ fontSize: '1.25rem', fontWeight: 900 }}>₹{formatCurrency(totals.total)}</span>
+                                <span style={{ fontWeight: 700 }}>Total Due (INR)</span>
+                                <span style={{ fontSize: '1.25rem', fontWeight: 900 }}>₹{formatCurrency(totals.subtotal + totals.sgst + totals.cgst)}</span>
                             </div>
                         </div>
                     </div>
