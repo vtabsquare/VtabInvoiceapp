@@ -291,7 +291,7 @@ const EditInvoice = () => {
         const boxWidth = (pageWidth - 20) / 2;
         const billedByAddress = `${profile.address1 || ''}, ${profile.city || ''}, ${profile.state || ''} ${profile.pincode || ''}`;
         const billedToAddress = `${client.address1 || ''}, ${client.address2 ? client.address2 + ', ' : ''}${client.city || ''}, ${client.state || ''} - ${client.pincode || ''}`;
-        
+
         const billedByContent = `${profile.companyName}\n${billedByAddress}\nGSTIN: ${profile.gstNo || 'N/A'}\nPAN: ${profile.taxNo || 'N/A'}\nEmail: ${profile.email || ''}\nPhone: ${profile.contactNo || ''}`;
         const billedToContent = `${client.name}\n${billedToAddress}\nGSTIN: ${client.gstNo || 'N/A'}\nPAN: ${client.panNo || 'N/A'}\nEmail: ${client.email || ''}\nPhone: ${client.contact || ''}`;
 
@@ -537,17 +537,30 @@ const EditInvoice = () => {
 
             let logoBase64 = null;
             try {
-                const logoUrl = `${window.location.origin}/image.png`;
-                const response = await fetch(logoUrl);
-                if (!response.ok) throw new Error(`Logo not found: ${response.status}`);
-                const blob = await response.blob();
+                const logoUrl = `${window.location.origin}/image.png?v=${Date.now()}`;
+                console.log("Loading logo from:", logoUrl);
+                
                 logoBase64 = await new Promise((resolve) => {
-                    const reader = new FileReader();
-                    reader.onloadend = () => resolve(reader.result);
-                    reader.readAsDataURL(blob);
+                    const img = new Image();
+                    img.crossOrigin = 'anonymous';
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0);
+                        const dataUrl = canvas.toDataURL('image/png');
+                        console.log("Logo loaded successfully as base64");
+                        resolve(dataUrl);
+                    };
+                    img.onerror = (err) => {
+                        console.error('Logo Image object load failed:', err);
+                        resolve(null);
+                    };
+                    img.src = logoUrl;
                 });
             } catch (e) {
-                console.error("Failed to load logo", e);
+                console.error("Failed to process logo image", e);
             }
 
             generatePDF(invoiceData, lineItems, totals, logoBase64);
