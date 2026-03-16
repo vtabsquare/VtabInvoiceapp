@@ -182,8 +182,8 @@ const AddInvoice = () => {
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.width;
         const pageHeight = doc.internal.pageSize.height;
-        const primaryColor = [0, 0, 0];
-        const accentColor = [248, 250, 252];
+        const indigoColor = [79, 70, 229]; // Indigo-600
+        const lavenderBg = [240, 240, 255];
         const borderColor = [220, 220, 220];
 
         const drawPageElements = () => {
@@ -192,41 +192,15 @@ const AddInvoice = () => {
             doc.setLineWidth(0.5);
             doc.rect(5, 5, pageWidth - 10, pageHeight - 10);
 
-            // Logo at top-left
-            if (logoBase64) {
-                doc.addImage(logoBase64, 'JPEG', 10, 10, 12, 12);
-            }
-
-            // INVOICE title (Black, bold)
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(22);
-            doc.setTextColor(0, 0, 0);
-            doc.text("INVOICE", logoBase64 ? 25 : 12, 20);
-
-            // Thin line
-            doc.setDrawColor(200, 200, 200);
-            doc.setLineWidth(0.2);
-            doc.line(10, 26, pageWidth - 10, 26);
-
-            // Profile info on the right
-            const profile = invoice.selectedProfile;
-            doc.setFontSize(8);
-            doc.setFont("helvetica", "bold");
-            doc.setTextColor(0, 0, 0);
-            doc.text(`${profile.companyName}`, pageWidth - 10, 15, { align: "right" });
-            doc.setFontSize(7);
-            doc.setFont("helvetica", "normal");
-            doc.setTextColor(100, 116, 139);
-            doc.text(`${profile.address1 || ''}, ${profile.city || ''}, ${profile.state || ''} ${profile.pincode || ''}`, pageWidth - 10, 20, { align: "right" });
-
             // --- FOOTER ---
+            const prof = invoice.selectedProfile;
             doc.setFontSize(7);
             doc.setFont("helvetica", "normal");
             doc.setTextColor(100, 116, 139);
             doc.setDrawColor(230, 230, 230);
             doc.line(10, pageHeight - 15, pageWidth - 10, pageHeight - 15);
             doc.text(
-                `${profile.companyName} | GST: ${profile.gstNo || 'N/A'} | PAN: ${profile.taxNo || 'N/A'} | Email: ${profile.email || ''}`,
+                `${prof.companyName} | GST: ${prof.gstNo || 'N/A'} | PAN: ${prof.taxNo || 'N/A'} | Email: ${prof.email || ''}`,
                 pageWidth / 2, pageHeight - 10, { align: "center" }
             );
         };
@@ -234,36 +208,70 @@ const AddInvoice = () => {
         // Draw page elements on first page
         drawPageElements();
 
+        // 1. HEADER SECTION
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(32);
+        doc.setTextColor(indigoColor[0], indigoColor[1], indigoColor[2]);
+        doc.text("Invoice", 12, 25);
+
+        // Logo on the right
+        if (logoBase64) {
+            // Adjusted size for the new logo (approx 35x15)
+            doc.addImage(logoBase64, 'PNG', pageWidth - 50, 12, 35, 15);
+        }
+
+        // Vertical details below "Invoice"
+        doc.setFontSize(9);
+        doc.setTextColor(50, 50, 50);
+        let headerY = 35;
+        const details = [
+            { label: "Invoice No #", value: invoice.invoiceNo },
+            { label: "Invoice Date", value: new Date(invoice.invoiceDate).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }) },
+            { label: "Due Date", value: invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }) : '-' }
+        ];
+
+        details.forEach(item => {
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(100, 116, 139);
+            doc.text(item.label, 12, headerY);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(0, 0, 0);
+            doc.text(item.value, 40, headerY);
+            headerY += 5;
+        });
+
         const profile = invoice.selectedProfile;
         const client = invoice.selectedClient;
-        let currentY = 32;
+        let currentY = headerY + 5;
 
-        // --- BILL TO / BILLED BY Section ---
-        const billByAddress = `${profile.address1 || ''}, ${profile.city || ''}, ${profile.state || ''} ${profile.pincode || ''}`;
-        const billToAddress = `${client.address1 || ''}, ${client.address2 ? client.address2 + ', ' : ''}${client.city || ''}, ${client.state || ''} - ${client.pincode || ''}`;
+        // 2. ADDRESS BOXES (Lavender)
+        const boxWidth = (pageWidth - 25) / 2;
+        const billedByContent = `${profile.companyName}\n${profile.address1 || ''}, ${profile.city || ''}, ${profile.state || ''} ${profile.pincode || ''}\nGSTIN: ${profile.gstNo || 'N/A'}\nPAN: ${profile.taxNo || 'N/A'}\nEmail: ${profile.email || ''}\nPhone: ${profile.phone || ''}`;
+        const billedToContent = `${client.name}\n${client.address1 || ''}, ${client.address2 ? client.address2 + ', ' : ''}${client.city || ''}, ${client.state || ''} - ${client.pincode || ''}\nGSTIN: ${client.gstNo || 'N/A'}\nPAN: ${client.panNo || 'N/A'}\nEmail: ${client.email || ''}\nPhone: ${client.phone || ''}`;
 
         autoTable(doc, {
             startY: currentY,
             body: [
                 [
-                    { content: "BILLED BY", styles: { fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 8 } },
-                    { content: "BILL TO", styles: { fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 8 } }
+                    { content: "Billed By", styles: { fontStyle: 'bold', textColor: indigoColor, fontSize: 13 } },
+                    { content: "Billed To", styles: { fontStyle: 'bold', textColor: indigoColor, fontSize: 13 } }
                 ],
                 [
-                    { content: `${profile.companyName}\n${billByAddress}\nGST: ${profile.gstNo || 'N/A'}`, styles: { fontSize: 8, textColor: [50, 50, 50] } },
-                    { content: `${client.name}\n${billToAddress}\n${client.email || ''}`, styles: { fontSize: 8, textColor: [50, 50, 50] } }
+                    { content: billedByContent, styles: { fontSize: 8.5, textColor: [50, 50, 50], cellPadding: 4 } },
+                    { content: billedToContent, styles: { fontSize: 8.5, textColor: [50, 50, 50], cellPadding: 4 } }
                 ]
             ],
             theme: 'plain',
-            styles: { cellPadding: { top: 1, bottom: 1, left: 2, right: 2 } },
+            styles: { fillColor: lavenderBg, cellPadding: 2 },
             columnStyles: {
-                0: { cellWidth: (pageWidth - 20) / 2 },
-                1: { cellWidth: (pageWidth - 20) / 2 }
+                0: { cellWidth: boxWidth },
+                1: { cellWidth: boxWidth }
             },
-            margin: { left: 10, right: 10 }
+            margin: { left: 10, right: 10 },
+            tableWidth: pageWidth - 20
         });
 
-        currentY = doc.lastAutoTable.finalY + 6;
+        currentY = doc.lastAutoTable.finalY + 10;
 
         // --- INVOICE INFO TABLE ---
         autoTable(doc, {
@@ -493,7 +501,7 @@ const AddInvoice = () => {
 
             let logoBase64 = null;
             try {
-                const response = await fetch('/vtab.jpeg');
+                const response = await fetch('/image.png');
                 const blob = await response.blob();
                 logoBase64 = await new Promise((resolve) => {
                     const reader = new FileReader();
