@@ -42,9 +42,18 @@ const Sidebar = () => {
             }} className="mobile-header">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                     <div style={{ width: '32px', height: '32px', background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <IndianRupee style={{ color: 'white', width: '18px' }} />
+                        <img 
+                            src="/vtab.jpeg" 
+                            alt="VTAB Logo" 
+                            style={{ 
+                                width: '100%', 
+                                height: '100%', 
+                                objectFit: 'cover',
+                                borderRadius: '2px'
+                            }} 
+                        /> 
                     </div>
-                    <span style={{ fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>VTAB Square</span>
+                    <span style={{ fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>VTAB Square Invoice</span>
                 </div>
                 <button
                     onClick={() => setIsOpen(true)}
@@ -61,6 +70,8 @@ const Sidebar = () => {
                     style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(4px)', zIndex: 50 }}
                 />
             )}
+
+            {/* laptop */}
 
             <aside style={{
                 width: '280px',
@@ -90,10 +101,19 @@ const Sidebar = () => {
                         alignItems: 'center',
                         justifyContent: 'center'
                     }}>
-                        <IndianRupee style={{ color: 'white', width: '24px' }} />
+                        <img
+                            src="/vtab.jpeg"
+                            alt="VTAB Logo"
+                            style={{
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'cover',
+                                borderRadius: '2px'
+                            }}
+                        />
                     </div>
                     <div style={{ flex: 1 }}>
-                        <span style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em' }}>VTAB Square</span>
+                        <span style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em' }}>VTAB Square Invoice</span>
                     </div>
                     <button
                         className="mobile-close"

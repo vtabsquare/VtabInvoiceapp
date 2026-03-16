@@ -6,6 +6,7 @@ const otpStore = require("../utils/otpStore");
 //login
 
 exports.loginAdmin = async (req, res) => {
+
     const { email, password } = req.body;
 
     try {
@@ -162,6 +163,9 @@ exports.changePassword = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
+
+
+
 // Clients Management
 
 exports.getClients = async (req, res) => {
@@ -230,13 +234,17 @@ exports.addClient = async (req, res) => {
         if (duplicateEmail) return res.status(400).json({ message: "Client Email already exists" });
         if (duplicateContact) return res.status(400).json({ message: "Contact Number already exists" });
 
-        let nextSerial = 123456;
+        let nextSerial = "00001";
         if (rows.length > 0) {
-            const validSerials = rows.map(r => parseInt(r[0])).filter(n => !isNaN(n));
+            console.log("Existing rows found:", rows.length);
+            // Filter out legacy serial numbers (e.g., 123456) to start fresh from 00001
+            const validSerials = rows.map(r => parseInt(r[0])).filter(n => !isNaN(n) && n < 100000);
+            console.log("Filtered valid serials:", validSerials);
             if (validSerials.length > 0) {
-                nextSerial = Math.max(...validSerials) + 1;
+                nextSerial = (Math.max(...validSerials) + 1).toString().padStart(5, '0');
             }
         }
+        console.log("Determined nextSerial:", nextSerial);
 
         // Updated Order to match screenshot: City (H), State (I), Country (J)
         const newClient = [
@@ -447,13 +455,17 @@ exports.addProfile = async (req, res) => {
         if (duplicateEmail) return res.status(400).json({ message: "Email Id already exists" });
         if (duplicateContact) return res.status(400).json({ message: "Contact Number already exists" });
 
-        let nextSerial = 123456;
+        let nextSerial = "00001";
         if (rows.length > 0) {
-            const validSerials = rows.map(r => parseInt(r[0])).filter(n => !isNaN(n));
+            console.log("Existing rows found:", rows.length);
+            // Filter out legacy serial numbers to start fresh from 00001
+            const validSerials = rows.map(r => parseInt(r[0])).filter(n => !isNaN(n) && n < 100000);
+            console.log("Filtered valid serials:", validSerials);
             if (validSerials.length > 0) {
-                nextSerial = Math.max(...validSerials) + 1;
+                nextSerial = (Math.max(...validSerials) + 1).toString().padStart(5, '0');
             }
         }
+        console.log("Determined nextSerial:", nextSerial);
 
         const newProfile = [
             nextSerial.toString(), // A
@@ -602,6 +614,8 @@ exports.deleteProfile = async (req, res) => {
     }
 };
 
+//invoice
+
 const formatNumeric = (val) => {
     const num = parseFloat(val) || 0;
     // Return as a number for better Google Sheets integration
@@ -633,13 +647,17 @@ exports.addInvoice = async (req, res) => {
         });
         const headerRows = headerResponse.data.values || [];
 
-        let nextSerial = 100001;
+        let nextSerial = "00001";
         if (headerRows.length > 0) {
-            const validSerials = headerRows.map(r => parseInt(r[0])).filter(n => !isNaN(n));
+            console.log("Existing rows found:", headerRows.length);
+            // Filter out legacy serial numbers to start fresh from 00001
+            const validSerials = headerRows.map(r => parseInt(r[0])).filter(n => !isNaN(n) && n < 100000);
+            console.log("Filtered valid serials:", validSerials);
             if (validSerials.length > 0) {
-                nextSerial = Math.max(...validSerials) + 1;
+                nextSerial = (Math.max(...validSerials) + 1).toString().padStart(5, '0');
             }
         }
+        console.log("Determined nextSerial:", nextSerial);
         
         // Ensure invoiceNo is unique
         const existingInvoiceRow = headerRows.find(row => row[1]?.toString().trim() === invoiceNo.toString().trim());
@@ -663,7 +681,7 @@ exports.addInvoice = async (req, res) => {
             const sgst = Number((baseAmount * (sRate / 100)).toFixed(2));
             const cgst = Number((baseAmount * (cRate / 100)).toFixed(2));
             const tax = Number((baseAmount * 0.10).toFixed(2));
-            const total = Number((baseAmount + sgst + cgst + tax).toFixed(2));
+            const total = Number((baseAmount + sgst + cgst - tax).toFixed(2));
 
             totalAmount = Number((totalAmount + baseAmount).toFixed(2));
             totalSgst = Number((totalSgst + sgst).toFixed(2));
@@ -907,7 +925,7 @@ exports.updateInvoice = async (req, res) => {
             const sgst = Number((baseAmount * (sRate / 100)).toFixed(2));
             const cgst = Number((baseAmount * (cRate / 100)).toFixed(2));
             const tax = Number((baseAmount * 0.10).toFixed(2));
-            const total = Number((baseAmount + sgst + cgst + tax).toFixed(2));
+            const total = Number((baseAmount + sgst + cgst - tax).toFixed(2));
 
             totalAmount = Number((totalAmount + baseAmount).toFixed(2));
             totalSgst = Number((totalSgst + sgst).toFixed(2));

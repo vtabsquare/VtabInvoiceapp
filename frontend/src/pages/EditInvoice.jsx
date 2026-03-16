@@ -145,7 +145,7 @@ const EditInvoice = () => {
                 const sgst = baseAmount * (sRate / 100);
                 const cgst = baseAmount * (cRate / 100);
                 const tax = baseAmount * 0.10;
-                const total = baseAmount + sgst + cgst + tax;
+                const total = baseAmount + sgst + cgst - tax;
 
                 return { ...updatedItem, sgst, cgst, tax, total };
             }
@@ -223,177 +223,247 @@ const EditInvoice = () => {
 
     const generatePDF = (invoice, items, finalTotals, logoBase64) => {
         const doc = new jsPDF();
-        const primaryColor = [37, 99, 235]; // #2563eb
-        const secondaryColor = [100, 116, 139]; // #64748b
+        const pageWidth = doc.internal.pageSize.width;
+        const pageHeight = doc.internal.pageSize.height;
+        const blueColor = [37, 99, 235];
+        const lightBlue = [219, 234, 254];
+        const darkText = [15, 23, 42];
+        const grayText = [100, 116, 139];
+        const whiteColor = [255, 255, 255];
 
-        // Header Section
-        doc.setFillColor(...primaryColor);
-        doc.rect(0, 0, 210, 40, 'F');
+        const drawPageElements = () => {
+            // --- BORDER around the entire page ---
+            doc.setDrawColor(0, 0, 0);
+            doc.setLineWidth(0.5);
+            doc.rect(5, 5, pageWidth - 10, pageHeight - 10);
 
-        if (logoBase64) {
-            doc.addImage(logoBase64, 'JPEG', 20, 5, 30, 30);
-        }
+            // Logo at top-left
+            if (logoBase64) {
+                doc.addImage(logoBase64, 'JPEG', 10, 10, 12, 12);
+            }
 
-        doc.setFontSize(28);
-        doc.setTextColor(255, 255, 255);
-        doc.setFont("helvetica", "bold");
-        doc.text("INVOICE", 190, 16, { align: "right" });
+            // INVOICE title (Black, bold)
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(22);
+            doc.setTextColor(0, 0, 0);
+            doc.text("INVOICE", logoBase64 ? 25 : 12, 20);
 
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "normal");
-        doc.text(`Invoice No: ${invoice.invoiceNo}`, 190, 23, { align: "right" });
-        doc.text(`Date: ${new Date(invoice.invoiceDate).toLocaleDateString()}`, 190, 29, { align: "right" });
-        if (invoice.dueDate) doc.text(`Due Date: ${new Date(invoice.dueDate).toLocaleDateString()}`, 190, 35, { align: "right" });
+            // Thin line above invoice info or below header area
+            doc.setDrawColor(200, 200, 200);
+            doc.setLineWidth(0.2);
+            doc.line(10, 26, pageWidth - 10, 26);
 
-        // Bill To / Billed By
-        let currentY = 55;
-        doc.setTextColor(0, 0, 0);
-        doc.setFontSize(11);
-        doc.setFont("helvetica", "bold");
-        doc.text("BILLED BY", 20, currentY);
-        doc.text("BILLED TO", 120, currentY);
+            // Profile info on the right
+            const profile = invoice.selectedProfile;
+            doc.setFontSize(8);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(0, 0, 0);
+            doc.text(`${profile.companyName}`, pageWidth - 10, 15, { align: "right" });
+            doc.setFontSize(7);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(100, 116, 139);
+            doc.text(`${profile.address1 || ''}, ${profile.city || ''}, ${profile.state || ''} ${profile.pincode || ''}`, pageWidth - 10, 20, { align: "right" });
 
-        currentY += 8;
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(10);
+            // --- FOOTER ---
+            doc.setFontSize(7);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(100, 116, 139);
+            doc.setDrawColor(230, 230, 230);
+            doc.line(10, pageHeight - 15, pageWidth - 10, pageHeight - 15);
+            doc.text(
+                `${profile.companyName} | GST: ${profile.gstNo || 'N/A'} | PAN: ${profile.taxNo || 'N/A'} | Email: ${profile.email || ''}`,
+                pageWidth / 2, pageHeight - 10, { align: "center" }
+            );
+        };
 
-        // Billed By Details
+        // Draw page elements on first page
+        drawPageElements();
+
         const profile = invoice.selectedProfile;
-        doc.text(profile.companyName, 20, currentY);
-        doc.setTextColor(...secondaryColor);
-        doc.text(profile.address1 || '', 20, currentY + 5);
-        if (profile.address2) doc.text(profile.address2, 20, currentY + 10);
-        doc.text(`${profile.city || ''}, ${profile.state || ''} - ${profile.pincode || ''}`, 20, currentY + 15);
-        doc.text(`GST: ${profile.gstNo || 'N/A'}`, 20, currentY + 20);
-        doc.text(`PAN: ${profile.taxNo || 'N/A'}`, 20, currentY + 25);
-
-        // Billed To Details
-        doc.setTextColor(0, 0, 0);
         const client = invoice.selectedClient;
-        doc.text(client.name, 120, currentY);
-        doc.setTextColor(...secondaryColor);
-        doc.text(client.address1 || '', 120, currentY + 5);
-        if (client.address2) doc.text(client.address2, 120, currentY + 10);
-        doc.text(`${client.city || ''}, ${client.state || ''} - ${client.pincode || ''}`, 120, currentY + 15);
-        doc.text(`GST: ${client.gstNo || 'N/A'}`, 120, currentY + 20);
-        doc.text(`PAN: ${client.taxNo || 'N/A'}`, 120, currentY + 25);
+        let currentY = 32;
 
-        currentY += 45;
+        // --- BILL TO / BILLED BY Section ---
+        const billByAddress = `${profile.address1 || ''}, ${profile.city || ''}, ${profile.state || ''} ${profile.pincode || ''}`;
+        const billToAddress = `${client.address1 || ''}, ${client.address2 ? client.address2 + ', ' : ''}${client.city || ''}, ${client.state || ''} - ${client.pincode || ''}`;
 
-        // Table
+        autoTable(doc, {
+            startY: currentY,
+            body: [
+                [
+                    { content: "BILLED BY", styles: { fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 8 } },
+                    { content: "BILL TO", styles: { fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 8 } }
+                ],
+                [
+                    { content: `${profile.companyName}\n${billByAddress}\nGST: ${profile.gstNo || 'N/A'}`, styles: { fontSize: 8, textColor: [50, 50, 50] } },
+                    { content: `${client.name}\n${billToAddress}\n${client.email || ''}`, styles: { fontSize: 8, textColor: [50, 50, 50] } }
+                ]
+            ],
+            theme: 'plain',
+            styles: { cellPadding: { top: 1, bottom: 1, left: 2, right: 2 } },
+            columnStyles: {
+                0: { cellWidth: (pageWidth - 20) / 2 },
+                1: { cellWidth: (pageWidth - 20) / 2 }
+            },
+            margin: { left: 10, right: 10 }
+        });
+
+        currentY = doc.lastAutoTable.finalY + 6;
+
+        // --- INVOICE INFO TABLE ---
+        autoTable(doc, {
+            startY: currentY,
+            body: [
+                ['Invoice No.', invoice.invoiceNo, 'Issue Date', new Date(invoice.invoiceDate).toLocaleDateString('en-IN')],
+                ['Due Date', invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString('en-IN') : '-', 'Reference', invoice.invoiceNo],
+            ],
+            theme: 'grid',
+            styles: { fontSize: 8, cellPadding: 3, lineColor: [220, 220, 220], lineWidth: 0.1 },
+            columnStyles: {
+                0: { fontStyle: 'bold', fillColor: [248, 250, 252], textColor: [0, 0, 0], cellWidth: 30 },
+                1: { fontStyle: 'bold', textColor: [0, 0, 0], cellWidth: 45 },
+                2: { fontStyle: 'bold', fillColor: [248, 250, 252], textColor: [0, 0, 0], cellWidth: 30 },
+                3: { fontStyle: 'bold', textColor: [0, 0, 0], cellWidth: 45 },
+            },
+            margin: { left: 10, right: 10 },
+            didDrawPage: (data) => {
+                drawPageElements();
+            }
+        });
+        currentY = doc.lastAutoTable.finalY + 6;
+
+        // --- LINE ITEMS TABLE ---
         const tableRows = items.map(item => [
-            { content: `${item.item}\n${item.description || ''}`, styles: { fontStyle: 'bold' } },
-            item.quantity,
-            formatCurrency(item.amount),
-            `${item.sgstRate || 9}%`,
-            `${item.cgstRate || 9}%`,
-            `10%`,
-            formatCurrency(item.total)
+            { content: item.item, styles: { fontStyle: 'bold' } },
+            { content: item.description || '' },
+            { content: String(item.quantity), styles: { halign: 'center' } },
+            { content: formatCurrency(item.amount), styles: { halign: 'right' } },
+            { content: `${item.sgstRate || 9}%`, styles: { halign: 'center' } },
+            { content: `${item.cgstRate || 9}%`, styles: { halign: 'center' } },
+            { content: `10%`, styles: { halign: 'center' } },
+            { content: formatCurrency(item.total), styles: { halign: 'right', fontStyle: 'bold' } },
         ]);
 
         autoTable(doc, {
             startY: currentY,
-            head: [['Description', 'Qty', 'Unit Price', 'SGST', 'CGST', 'Tax', 'Total']],
+            head: [['ITEM NAME', 'DESCRIPTION', 'QUANTITY', 'UNIT PRICE', 'SGST', 'CGST', 'TAX (10%) LESS', 'AMOUNT']],
             body: tableRows,
             theme: 'grid',
-            headStyles: { fillColor: primaryColor, textColor: 255, fontStyle: 'bold' },
-            styles: { fontSize: 9, cellPadding: 4 },
+            headStyles: { fillColor: [241, 245, 249], textColor: [0, 0, 0], fontStyle: 'bold', fontSize: 8, lineWidth: 0.1 },
+            styles: { fontSize: 7.5, cellPadding: 3, lineColor: [220, 220, 220], lineWidth: 0.1 },
+            alternateRowStyles: { fillColor: [252, 252, 252] },
             columnStyles: {
-                0: { cellWidth: 'auto' },
-                1: { halign: 'center' },
-                2: { halign: 'right' },
-                3: { halign: 'center' },
-                4: { halign: 'center' },
-                5: { halign: 'center' },
-                6: { halign: 'right' }
+                0: { cellWidth: 35 },
+                1: { cellWidth: 'auto' },
+                2: { halign: 'center', cellWidth: 15 },
+                3: { halign: 'right', cellWidth: 20 },
+                4: { halign: 'center', cellWidth: 12 },
+                5: { halign: 'center', cellWidth: 12 },
+                6: { halign: 'center', cellWidth: 18 },
+                7: { halign: 'right', cellWidth: 20 },
             },
-            margin: { left: 20, right: 20 },
-            didDrawPage: (data) => { currentY = data.cursor.y + 15; }
+            margin: { left: 10, right: 10 },
+            didDrawPage: () => {
+                drawPageElements();
+            }
         });
+        currentY = doc.lastAutoTable.finalY + 6;
 
-        // Ensure we have space for the Totals/Bank Details
-        if (currentY > 210) {
+        // Check if we need a new page for totals + bank
+        if (currentY > pageHeight - 80) {
             doc.addPage();
-            currentY = 20;
+            drawPageElements();
+            currentY = 32;
         }
 
-        const tablesStartY = currentY;
-
-        // Bank Details & Totals side-by-side
-        let bankDetailsBody = [];
-        if (invoice.accountHolderName) bankDetailsBody.push(["Account Name", invoice.accountHolderName]);
-        bankDetailsBody.push(["Account No", invoice.accountNo]);
-        if (invoice.ifscCode) bankDetailsBody.push(["IFSC Code", invoice.ifscCode]);
-        if (invoice.branchLocation) bankDetailsBody.push(["Branch", invoice.branchLocation]);
-        if (invoice.accountType) bankDetailsBody.push(["Account Type", invoice.accountType]);
-
-        if (bankDetailsBody.length > 0) {
-            autoTable(doc, {
-                startY: tablesStartY,
-                head: [["Bank Details", ""]],
-                body: bankDetailsBody,
-                theme: 'grid',
-                headStyles: { fillColor: primaryColor, textColor: 255, fontStyle: 'bold' },
-                styles: { fontSize: 9, cellPadding: 3, textColor: [0, 0, 0] },
-                columnStyles: {
-                    0: { cellWidth: 35, fontStyle: 'bold', textColor: secondaryColor },
-                    1: { cellWidth: 55 }
-                },
-                tableWidth: 90,
-                margin: { left: 20 },
-                didDrawPage: (data) => { currentY = Math.max(currentY, data.cursor.y); }
-            });
-        }
-
-        const totalsBody = [
-            ["Subtotal", `INR ${formatCurrency(finalTotals.subtotal)}`],
-            ["SGST", `INR ${formatCurrency(finalTotals.sgst)}`],
-            ["CGST", `INR ${formatCurrency(finalTotals.cgst)}`],
-            ["Tax (10%)", `INR ${formatCurrency(finalTotals.tax)}`],
-            [{ content: "Grand Total", styles: { fontStyle: 'bold', textColor: [0, 0, 0] } }, { content: `INR ${formatCurrency(finalTotals.total)}`, styles: { fontStyle: 'bold', textColor: [0, 0, 0] } }]
-        ];
-
+        // --- TOTALS TABLE ---
         autoTable(doc, {
-            startY: tablesStartY,
-            body: totalsBody,
+            startY: currentY,
+            body: [
+                ['TOTAL (INR):', { content: formatCurrency(finalTotals.subtotal + finalTotals.sgst + finalTotals.cgst), styles: { halign: 'right' } }],
+                ['SGST:', { content: formatCurrency(finalTotals.sgst), styles: { halign: 'right' } }],
+                ['CGST:', { content: formatCurrency(finalTotals.cgst), styles: { halign: 'right' } }],
+                ['Tax (10%) Less:', { content: `-${formatCurrency(finalTotals.tax)}`, styles: { halign: 'right', textColor: [150, 0, 0] } }],
+                [
+                    { content: 'TOTAL DUE (INR)', styles: { fontStyle: 'bold', fillColor: [0, 0, 0], textColor: [255, 255, 255] } },
+                    { content: formatCurrency(finalTotals.total), styles: { halign: 'right', fontStyle: 'bold', fillColor: [0, 0, 0], textColor: [255, 255, 255] } }
+                ],
+            ],
             theme: 'grid',
-            styles: { fontSize: 9, cellPadding: 3, textColor: secondaryColor },
+            styles: { fontSize: 9, cellPadding: 3.5, lineColor: [220, 220, 220], lineWidth: 0.1 },
             columnStyles: {
-                0: { halign: 'left', cellWidth: 35 },
-                1: { halign: 'right', cellWidth: 45, textColor: [0, 0, 0] }
+                0: { fontStyle: 'bold', fillColor: [248, 250, 252], textColor: [0, 0, 0], cellWidth: 60 },
+                1: { textColor: [0, 0, 0], cellWidth: 40 },
             },
-            tableWidth: 80,
-            margin: { left: 120 },
-            didDrawPage: (data) => { currentY = Math.max(currentY, data.cursor.y); }
+            tableWidth: 100,
+            margin: { left: pageWidth - 110, right: 10 },
+            didDrawPage: () => { drawPageElements(); }
         });
+        currentY = doc.lastAutoTable.finalY + 8;
 
-        // Advance Y for Signature
-        currentY += 15;
-        if (currentY > 240) {
-            doc.addPage();
-            currentY = 20;
-        }
-
-        // Signature Section
-        if (invoice.signature) {
-            doc.addImage(invoice.signature, 'PNG', 140, currentY, 40, 20);
-            doc.setFontSize(10);
+        // --- BANK DETAILS TABLE ---
+        if (invoice.accountNo) {
+            if (currentY > pageHeight - 65) {
+                doc.addPage();
+                drawPageElements();
+                currentY = 32;
+            }
+            doc.setFontSize(9);
             doc.setFont("helvetica", "bold");
             doc.setTextColor(0, 0, 0);
-            doc.text("Authorized Signature", 160, currentY + 25, { align: "center" });
+            doc.text("BANK DETAILS", 10, currentY);
+            currentY += 4;
+
+            autoTable(doc, {
+                startY: currentY,
+                head: [['Account Name', 'Account No', 'IFSC Code', 'Branch']],
+                body: [
+                    [
+                        invoice.accountHolderName || 'N/A',
+                        invoice.accountNo,
+                        invoice.ifscCode || 'N/A',
+                        invoice.branchLocation || 'N/A'
+                    ]
+                ],
+                theme: 'grid',
+                headStyles: { fillColor: [248, 250, 252], textColor: [0, 0, 0], fontStyle: 'bold', fontSize: 8 },
+                styles: { fontSize: 8, cellPadding: 3, lineColor: [220, 220, 220], lineWidth: 0.1 },
+                margin: { left: 10, right: 10 },
+                didDrawPage: () => { drawPageElements(); }
+            });
+            currentY = doc.lastAutoTable.finalY + 10;
         }
 
-        // Footer
-        const pageHeight = doc.internal.pageSize.height;
-        doc.setFillColor(...primaryColor);
-        doc.rect(0, pageHeight - 20, 210, 20, 'F');
-        doc.setFontSize(11);
-        doc.setTextColor(255, 255, 255);
-        doc.setFont("helvetica", "bold");
-        doc.text("VTAB SQUARE", 105, pageHeight - 12, { align: "center" });
+        // --- SIGNATURE SECTION ---
+        if (currentY > pageHeight - 60) {
+            doc.addPage();
+            drawPageElements();
+            currentY = 32;
+        }
+
+        const sigX = pageWidth - 70;
         doc.setFontSize(8);
+        doc.setTextColor(50, 50, 50);
+        doc.setFont("helvetica", "bold");
+        doc.text("Authorized Signatory", sigX, currentY);
+        currentY += 5;
+
+        if (invoice.signature) {
+            doc.addImage(invoice.signature, 'PNG', sigX, currentY, 40, 15);
+            currentY += 18;
+        } else {
+            currentY += 15;
+        }
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8);
+        doc.setTextColor(0, 0, 0);
+        doc.text("Vimala C.", sigX, currentY);
+        currentY += 4;
         doc.setFont("helvetica", "normal");
-        doc.text("TRANSFORMING IT INTO A STRATEGIC ADVANTAGE", 105, pageHeight - 6, { align: "center" });
+        doc.text("Managing Director", sigX, currentY);
+        currentY += 4;
+        doc.text("VTAB Square Pvt Ltd (Now Part of Siroco)", sigX, currentY);
 
         doc.save(`Invoice_${invoice.invoiceNo}.pdf`);
     };
@@ -748,7 +818,7 @@ const EditInvoice = () => {
                                 <span style={{ fontWeight: 600, color: '#0f172a' }}>₹{formatCurrency(totals.cgst)}</span>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', color: '#64748b' }}>
-                                <span>Tax (10%)</span>
+                                <span>Tax (10%) Less</span>
                                 <span style={{ fontWeight: 600, color: '#0f172a' }}>₹{formatCurrency(totals.tax)}</span>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', background: '#2563eb', borderRadius: '12px', color: 'white' }}>

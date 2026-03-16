@@ -109,7 +109,16 @@ const Login = () => {
                         borderRadius: '0.875rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                         marginBottom: '1rem', boxShadow: '0 8px 20px rgba(37,99,235,0.3)'
                     }}>
-                        <span style={{ fontSize: '1.25rem' }}>⚡</span>
+                        <img 
+                            src="/vtab.jpeg" 
+                            alt="VTAB Logo" 
+                            style={{ 
+                                width: '100%', 
+                                height: '100%', 
+                                objectFit: 'cover',
+                                borderRadius: '0.875rem'
+                            }} 
+                        />
                     </div>
                     <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0f172a', margin: 0, letterSpacing: '-0.025em' }}>VTAB Square</h1>
                     <p style={{ color: '#64748b', margin: '0.375rem 0 0 0', fontWeight: 500, fontSize: '0.875rem' }}>Invoice Management System</p>
