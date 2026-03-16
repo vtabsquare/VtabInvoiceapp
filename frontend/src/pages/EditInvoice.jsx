@@ -291,8 +291,8 @@ const EditInvoice = () => {
         const billedByAddress = `${profile.address1 || ''}, ${profile.city || ''}, ${profile.state || ''} ${profile.pincode || ''}`;
         const billedToAddress = `${client.address1 || ''}, ${client.address2 ? client.address2 + ', ' : ''}${client.city || ''}, ${client.state || ''} - ${client.pincode || ''}`;
         
-        const billedByContent = `${profile.companyName}\n${billedByAddress}\nGSTIN: ${profile.gstNo || 'N/A'}\nPAN: ${profile.taxNo || 'N/A'}\nEmail: ${profile.email || ''}\nPhone: ${profile.phone || ''}`;
-        const billedToContent = `${client.name}\n${billedToAddress}\nGSTIN: ${client.gstNo || 'N/A'}\nPAN: ${client.panNo || 'N/A'}\nEmail: ${client.email || ''}\nPhone: ${client.phone || ''}`;
+        const billedByContent = `${profile.companyName}\n${billedByAddress}\nGSTIN: ${profile.gstNo || 'N/A'}\nPAN: ${profile.taxNo || 'N/A'}\nEmail: ${profile.email || ''}\nPhone: ${profile.contactNo || ''}`;
+        const billedToContent = `${client.name}\n${billedToAddress}\nGSTIN: ${client.gstNo || 'N/A'}\nPAN: ${client.panNo || 'N/A'}\nEmail: ${client.email || ''}\nPhone: ${client.contact || ''}`;
 
         autoTable(doc, {
             startY: currentY,
@@ -421,7 +421,7 @@ const EditInvoice = () => {
         }
 
         // --- SIGNATURE SECTION ---
-        if (currentY > pageHeight - 60) {
+        if (currentY > pageHeight - 55) {
             doc.addPage();
             drawPageElements();
             currentY = 32;

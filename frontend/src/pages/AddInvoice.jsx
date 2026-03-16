@@ -246,8 +246,8 @@ const AddInvoice = () => {
 
         // 2. ADDRESS BOXES (Lavender)
         const boxWidth = (pageWidth - 25) / 2;
-        const billedByContent = `${profile.companyName}\n${profile.address1 || ''}, ${profile.city || ''}, ${profile.state || ''} ${profile.pincode || ''}\nGSTIN: ${profile.gstNo || 'N/A'}\nPAN: ${profile.taxNo || 'N/A'}\nEmail: ${profile.email || ''}\nPhone: ${profile.phone || ''}`;
-        const billedToContent = `${client.name}\n${client.address1 || ''}, ${client.address2 ? client.address2 + ', ' : ''}${client.city || ''}, ${client.state || ''} - ${client.pincode || ''}\nGSTIN: ${client.gstNo || 'N/A'}\nPAN: ${client.panNo || 'N/A'}\nEmail: ${client.email || ''}\nPhone: ${client.phone || ''}`;
+        const billedByContent = `${profile.companyName}\n${profile.address1 || ''}, ${profile.city || ''}, ${profile.state || ''} ${profile.pincode || ''}\nGSTIN: ${profile.gstNo || 'N/A'}\nPAN: ${profile.taxNo || 'N/A'}\nEmail: ${profile.email || ''}\nPhone: ${profile.contactNo || ''}`;
+        const billedToContent = `${client.name}\n${client.address1 || ''}, ${client.address2 ? client.address2 + ', ' : ''}${client.city || ''}, ${client.state || ''} - ${client.pincode || ''}\nGSTIN: ${client.gstNo || 'N/A'}\nPAN: ${client.panNo || 'N/A'}\nEmail: ${client.email || ''}\nPhone: ${client.contact || ''}`;
 
         autoTable(doc, {
             startY: currentY,
@@ -272,28 +272,6 @@ const AddInvoice = () => {
         });
 
         currentY = doc.lastAutoTable.finalY + 10;
-
-        // --- INVOICE INFO TABLE ---
-        autoTable(doc, {
-            startY: currentY,
-            body: [
-                ['Invoice No.', invoice.invoiceNo, 'Issue Date', new Date(invoice.invoiceDate).toLocaleDateString('en-IN')],
-                ['Due Date', invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString('en-IN') : '-', 'Reference', invoice.invoiceNo],
-            ],
-            theme: 'grid',
-            styles: { fontSize: 8, cellPadding: 3, lineColor: [220, 220, 220], lineWidth: 0.1 },
-            columnStyles: {
-                0: { fontStyle: 'bold', fillColor: [248, 250, 252], textColor: [0, 0, 0], cellWidth: 30 },
-                1: { fontStyle: 'bold', textColor: [0, 0, 0], cellWidth: 45 },
-                2: { fontStyle: 'bold', fillColor: [248, 250, 252], textColor: [0, 0, 0], cellWidth: 30 },
-                3: { fontStyle: 'bold', textColor: [0, 0, 0], cellWidth: 45 },
-            },
-            margin: { left: 10, right: 10 },
-            didDrawPage: (data) => {
-                drawPageElements();
-            }
-        });
-        currentY = doc.lastAutoTable.finalY + 6;
 
         // --- LINE ITEMS TABLE ---
         const tableRows = items.map(item => [
@@ -398,7 +376,7 @@ const AddInvoice = () => {
         }
 
         // --- SIGNATURE SECTION ---
-        if (currentY > pageHeight - 60) {
+        if (currentY > pageHeight - 55) {
             doc.addPage();
             drawPageElements();
             currentY = 32;
