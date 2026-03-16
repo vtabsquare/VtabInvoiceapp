@@ -245,8 +245,7 @@ const AddInvoice = () => {
         const client = invoice.selectedClient;
         let currentY = headerY + 5;
 
-        // 2. ADDRESS BOXES (Lavender)
-        const boxWidth = (pageWidth - 25) / 2;
+        const boxWidth = (pageWidth - 20) / 2;
         const billedByContent = `${profile.companyName}\n${profile.address1 || ''}, ${profile.city || ''}, ${profile.state || ''} ${profile.pincode || ''}\nGSTIN: ${profile.gstNo || 'N/A'}\nPAN: ${profile.taxNo || 'N/A'}\nEmail: ${profile.email || ''}\nPhone: ${profile.contactNo || ''}`;
         const billedToContent = `${client.name}\n${client.address1 || ''}, ${client.address2 ? client.address2 + ', ' : ''}${client.city || ''}, ${client.state || ''} - ${client.pincode || ''}\nGSTIN: ${client.gstNo || 'N/A'}\nPAN: ${client.panNo || 'N/A'}\nEmail: ${client.email || ''}\nPhone: ${client.contact || ''}`;
 
@@ -288,10 +287,10 @@ const AddInvoice = () => {
 
         autoTable(doc, {
             startY: currentY,
-            head: [['ITEM NAME', 'DESCRIPTION', 'QUANTITY', 'UNIT PRICE', 'SGST', 'CGST', 'TAX (10%) LESS', 'AMOUNT']],
+            head: [['ITEM', 'DESCRIPTION', 'QTY', 'UNIT PRICE', 'SGST', 'CGST', 'TAX (10%)', 'AMOUNT']],
             body: tableRows,
             theme: 'grid',
-            headStyles: { fillColor: [241, 245, 249], textColor: [0, 0, 0], fontStyle: 'bold', fontSize: 8, lineWidth: 0.1 },
+            headStyles: { fillColor: [241, 245, 249], textColor: [0, 0, 0], fontStyle: 'bold', fontSize: 6, lineWidth: 0.1 },
             styles: { fontSize: 7.5, cellPadding: 3, lineColor: [220, 220, 220], lineWidth: 0.1 },
             alternateRowStyles: { fillColor: [252, 252, 252] },
             columnStyles: {
@@ -315,13 +314,13 @@ const AddInvoice = () => {
 
         // --- AMOUNT IN WORDS (Left side of totals) ---
         const amountInWords = numberToWords(Math.round(totalAmount));
-        doc.setFontSize(9);
+        doc.setFontSize(7.5);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(50, 50, 50);
         doc.text("Amount in Words:", 12, currentY + 10);
         doc.setFont("helvetica", "normal");
-        const splitWords = doc.splitTextToSize(amountInWords, pageWidth - 120);
-        doc.text(splitWords, 12, currentY + 16);
+        const splitWords = doc.splitTextToSize(amountInWords, pageWidth - 130);
+        doc.text(splitWords, 12, currentY + 14);
 
         // Check if we need a new page for totals + bank
         if (currentY > pageHeight - 80) {
@@ -419,7 +418,9 @@ const AddInvoice = () => {
         currentY += 4;
         doc.text("VTAB Square Pvt Ltd (Now Part of Siroco)", sigX, currentY);
 
-        doc.save(`Invoice_${invoice.invoiceNo}.pdf`);
+        const sanitize = (name) => name ? name.toUpperCase().replace(/\s+/g, '_') : 'UNKNOWN';
+        const fileName = `INVOICE_${invoice.invoiceNo}_${sanitize(profile.companyName)}_${sanitize(client.name)}.pdf`;
+        doc.save(fileName);
     };
 
 
