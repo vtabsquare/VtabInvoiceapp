@@ -376,7 +376,7 @@ const AddInvoice = () => {
         }
 
         // --- SIGNATURE SECTION ---
-        if (currentY > pageHeight - 55) {
+        if (currentY > pageHeight - 35) {
             doc.addPage();
             drawPageElements();
             currentY = 32;
