@@ -502,6 +502,7 @@ const AddInvoice = () => {
             let logoBase64 = null;
             try {
                 const response = await fetch('/image.png');
+                if (!response.ok) throw new Error(`Logo not found: ${response.status}`);
                 const blob = await response.blob();
                 logoBase64 = await new Promise((resolve) => {
                     const reader = new FileReader();
