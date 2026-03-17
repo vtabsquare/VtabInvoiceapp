@@ -93,6 +93,11 @@ const Profiles = () => {
     const handleChange = (e) => {
         const { name, value } = e.target;
 
+        // Alphabets only for business name, industry, and POC
+        if ((name === 'companyName' || name === 'industry' || name === 'pointOfContact') && value !== '' && !/^[a-zA-Z\s]*$/.test(value)) {
+            return;
+        }
+
         // Numeric only for contact and pincode
         if ((name === 'contactNo' || name === 'pincode') && value !== '' && !/^\d+$/.test(value)) {
             return;
@@ -101,7 +106,8 @@ const Profiles = () => {
         // Length limits
         if (name === 'contactNo' && value.length > 10) return;
         if (name === 'pincode' && value.length > 6) return;
-        if (name === 'gstNo' && value.length > 15) return;
+        if (name === 'gstNo' && value.length > 16) return;
+        if (name === 'taxNo' && value.length > 16) return;
 
         setFormData(prev => ({
             ...prev,
@@ -116,12 +122,22 @@ const Profiles = () => {
 
         // Final Validation
         if (formData.contactNo.length !== 10) {
-            setError('Contact Number must be 10 digits');
+            setError('Contact Number must be exactly 10 digits');
             setLoading(false);
             return;
         }
         if (formData.pincode.length !== 6) {
-            setError('Pincode must be 6 digits');
+            setError('Pincode must be exactly 6 digits');
+            setLoading(false);
+            return;
+        }
+        if (formData.gstNo.length < 11 || formData.gstNo.length > 16) {
+            setError('GST Number must be 11 to 16 characters');
+            setLoading(false);
+            return;
+        }
+        if (formData.taxNo.length < 11 || formData.taxNo.length > 16) {
+            setError('TAN Number must be 11 to 16 characters');
             setLoading(false);
             return;
         }
@@ -387,13 +403,13 @@ const Profiles = () => {
                                     </div>
 
                                     <div>
-                                        <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '0.5rem' }}>5. Phone Number*</label>
+                                        <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '0.5rem' }}>5. Phone Number* (Exactly 10 Digits)</label>
                                         <div style={{ position: 'relative' }}>
                                             <div style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                                 <img src="https://flagcdn.com/w20/in.png" alt="IN" style={{ width: '16px' }} />
                                                 <span style={{ fontSize: '0.875rem', color: '#64748b', fontWeight: 600 }}>+91</span>
                                             </div>
-                                            <input type="text" style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 4rem', borderRadius: '10px', border: '1px solid #e2e8f0', outline: 'none' }} name="contactNo" value={formData.contactNo} onChange={handleChange} placeholder="90420-19174" maxLength="10" required />
+                                            <input type="text" style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 4rem', borderRadius: '10px', border: '1px solid #e2e8f0', outline: 'none' }} name="contactNo" value={formData.contactNo} onChange={handleChange} placeholder="9042019174" maxLength="10" required />
                                         </div>
                                     </div>
 
@@ -432,7 +448,7 @@ const Profiles = () => {
                                     </div>
 
                                     <div>
-                                        <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '0.5rem' }}>9. Pincode*</label>
+                                        <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '0.5rem' }}>9. Pincode* (Exactly 6 Digits)</label>
                                         <input type="text" style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '10px', border: '1px solid #e2e8f0', outline: 'none' }} name="pincode" value={formData.pincode} onChange={handleChange} placeholder="600001" maxLength="6" required />
                                     </div>
 
@@ -453,18 +469,18 @@ const Profiles = () => {
                                     </div>
 
                                     <div style={{ gridColumn: 'span 1' }}>
-                                        <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '0.5rem' }}>11. GST Number*</label>
+                                        <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '0.5rem' }}>11. GST Number* (11-16 chars)</label>
                                         <div style={{ position: 'relative' }}>
                                             <Hash style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', width: '1rem', color: '#94a3b8' }} />
-                                            <input type="text" style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.75rem', borderRadius: '10px', border: '1px solid #e2e8f0', outline: 'none' }} name="gstNo" value={formData.gstNo} onChange={handleChange} placeholder="e.g. 33AAACV1234F1Z5" maxLength="15" required />
+                                            <input type="text" style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.75rem', borderRadius: '10px', border: '1px solid #e2e8f0', outline: 'none' }} name="gstNo" value={formData.gstNo} onChange={handleChange} placeholder="e.g. 33AAACV1234F1Z5A" maxLength="16" required />
                                         </div>
                                     </div>
 
                                     <div style={{ gridColumn: 'span 1' }}>
-                                        <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '0.5rem' }}>12. Tax No / TAN*</label>
+                                        <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '0.5rem' }}>12. Tax No / TAN* (11-16 chars)</label>
                                         <div style={{ position: 'relative' }}>
                                             <FileText style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', width: '1rem', color: '#94a3b8' }} />
-                                            <input type="text" style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.75rem', borderRadius: '10px', border: '1px solid #e2e8f0', outline: 'none' }} name="taxNo" value={formData.taxNo} onChange={handleChange} placeholder="ABCDE1234F" required />
+                                            <input type="text" style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.75rem', borderRadius: '10px', border: '1px solid #e2e8f0', outline: 'none' }} name="taxNo" value={formData.taxNo} onChange={handleChange} placeholder="ABCDE1234F12" maxLength="16" required />
                                         </div>
                                     </div>
                                 </div>

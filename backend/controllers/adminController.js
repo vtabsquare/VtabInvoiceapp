@@ -208,9 +208,26 @@ exports.addClient = async (req, res) => {
     } = req.body;
 
     // Basic validation
-    if (!name || !email || !contact || !address1 || !address2 || !country || !state || !city || !pincode) {
+    if (!name || !email || !contact || !address1 || !address2 || !country || !state || !city || !pincode || !taxNo || !gstNo) {
         console.error("Validation Failed. Missing fields.");
-        return res.status(400).json({ message: "All required fields must be filled" });
+        return res.status(400).json({ message: "All required fields must be filled (including TAN and GST)" });
+    }
+
+    const alphaRegex = /^[a-zA-Z\s]*$/;
+    if (!alphaRegex.test(name)) {
+        return res.status(400).json({ message: "Client Name must contain only alphabets" });
+    }
+    if (contact.length !== 10) {
+        return res.status(400).json({ message: "Contact Number must be exactly 10 digits" });
+    }
+    if (pincode.length !== 6) {
+        return res.status(400).json({ message: "Pincode must be exactly 6 digits" });
+    }
+    if (taxNo.length < 11 || taxNo.length > 16) {
+        return res.status(400).json({ message: "TAN Number must be 11 to 16 characters" });
+    }
+    if (gstNo.length < 11 || gstNo.length > 16) {
+        return res.status(400).json({ message: "GST Number must be 11 to 16 characters" });
     }
 
     try {
@@ -307,6 +324,27 @@ exports.updateClient = async (req, res) => {
 
         // Google Sheets rows are 1-indexed, and we skipped the header (A2:A)
         const sheetRowIndex = rowIndex + 2;
+
+        if (!updateData.name || !updateData.email || !updateData.contact || !updateData.address1 || !updateData.address2 || !updateData.country || !updateData.state || !updateData.city || !updateData.pincode || !updateData.taxNo || !updateData.gstNo) {
+            return res.status(400).json({ message: "All required fields must be filled" });
+        }
+
+        const alphaRegex = /^[a-zA-Z\s]*$/;
+        if (!alphaRegex.test(updateData.name)) {
+            return res.status(400).json({ message: "Client Name must contain only alphabets" });
+        }
+        if (updateData.contact.length !== 10) {
+            return res.status(400).json({ message: "Contact Number must be exactly 10 digits" });
+        }
+        if (updateData.pincode.length !== 6) {
+            return res.status(400).json({ message: "Pincode must be exactly 6 digits" });
+        }
+        if (updateData.taxNo.length < 11 || updateData.taxNo.length > 16) {
+            return res.status(400).json({ message: "TAN Number must be 11 to 16 characters" });
+        }
+        if (updateData.gstNo.length < 11 || updateData.gstNo.length > 16) {
+            return res.status(400).json({ message: "GST Number must be 11 to 16 characters" });
+        }
 
         const updatedClient = [
             serialNo,              // A
@@ -432,9 +470,32 @@ exports.addProfile = async (req, res) => {
         gstNo, teamSize, industry, taxNo
     } = req.body;
 
-    if (!companyName || !email || !contactNo || !address1 || !address2 || !city || !state || !country || !pincode || !teamSize || !gstNo || !taxNo) {
+    if (!companyName || !email || !contactNo || !address1 || !address2 || !city || !state || !country || !pincode || !teamSize || !gstNo || !taxNo || !industry || !pointOfContact) {
         console.error("Validation Failed. Missing fields.");
-        return res.status(400).json({ message: "All required fields must be filled (including GST and Tax No)" });
+        return res.status(400).json({ message: "All required fields must be filled (including Industry and Point of Contact)" });
+    }
+
+    const alphaRegex = /^[a-zA-Z\s]*$/;
+    if (!alphaRegex.test(companyName)) {
+        return res.status(400).json({ message: "Business Name must contain only alphabets" });
+    }
+    if (!alphaRegex.test(industry)) {
+        return res.status(400).json({ message: "Industry must contain only alphabets" });
+    }
+    if (!alphaRegex.test(pointOfContact)) {
+        return res.status(400).json({ message: "Point of Contact must contain only alphabets" });
+    }
+    if (contactNo.length !== 10) {
+        return res.status(400).json({ message: "Contact Number must be exactly 10 digits" });
+    }
+    if (pincode.length !== 6) {
+        return res.status(400).json({ message: "Pincode must be exactly 6 digits" });
+    }
+    if (gstNo.length < 11 || gstNo.length > 16) {
+        return res.status(400).json({ message: "GST Number must be 11 to 16 characters" });
+    }
+    if (taxNo.length < 11 || taxNo.length > 16) {
+        return res.status(400).json({ message: "TAN Number must be 11 to 16 characters" });
     }
 
     try {
@@ -519,8 +580,31 @@ exports.updateProfile = async (req, res) => {
         const rows = response.data.values || [];
         const rowIndex = rows.findIndex(row => row[0]?.toString().trim() === serialNo.toString().trim());
 
-        if (!updateData.companyName || !updateData.email || !updateData.contactNo || !updateData.address1 || !updateData.address2 || !updateData.city || !updateData.state || !updateData.country || !updateData.pincode || !updateData.teamSize || !updateData.gstNo || !updateData.taxNo) {
-            return res.status(400).json({ message: "All required fields must be filled (including GST and Tax No)" });
+        if (!updateData.companyName || !updateData.email || !updateData.contactNo || !updateData.address1 || !updateData.address2 || !updateData.city || !updateData.state || !updateData.country || !updateData.pincode || !updateData.teamSize || !updateData.gstNo || !updateData.taxNo || !updateData.industry || !updateData.pointOfContact) {
+            return res.status(400).json({ message: "All required fields must be filled" });
+        }
+
+        const alphaRegex = /^[a-zA-Z\s]*$/;
+        if (!alphaRegex.test(updateData.companyName)) {
+            return res.status(400).json({ message: "Business Name must contain only alphabets" });
+        }
+        if (!alphaRegex.test(updateData.industry)) {
+            return res.status(400).json({ message: "Industry must contain only alphabets" });
+        }
+        if (!alphaRegex.test(updateData.pointOfContact)) {
+            return res.status(400).json({ message: "Point of Contact must contain only alphabets" });
+        }
+        if (updateData.contactNo.length !== 10) {
+            return res.status(400).json({ message: "Contact Number must be exactly 10 digits" });
+        }
+        if (updateData.pincode.length !== 6) {
+            return res.status(400).json({ message: "Pincode must be exactly 6 digits" });
+        }
+        if (updateData.gstNo.length < 11 || updateData.gstNo.length > 16) {
+            return res.status(400).json({ message: "GST Number must be 11 to 16 characters" });
+        }
+        if (updateData.taxNo.length < 11 || updateData.taxNo.length > 16) {
+            return res.status(400).json({ message: "TAN Number must be 11 to 16 characters" });
         }
 
         if (rowIndex === -1) {
@@ -631,8 +715,24 @@ exports.addInvoice = async (req, res) => {
         branchLocation, ifscCode, accountType
     } = req.body;
 
-    if (!invoiceNo || !invoiceDate || !profileName || !clientName || !lineItems || lineItems.length === 0) {
-        return res.status(400).json({ message: "Missing required invoice fields (invoiceNo, invoiceDate, profileName, clientName, lineItems)" });
+    if (!invoiceNo || !invoiceDate || !profileName || !clientName || !lineItems || lineItems.length === 0 || !dueDate || !accountHolderName || !accountNo || !branchLocation || !ifscCode || !accountType) {
+        return res.status(400).json({ message: "Missing required invoice fields (including Bank Details and Due Date)" });
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+    if (dueDate < today) {
+        return res.status(400).json({ message: "Due Date must be a current or future date" });
+    }
+
+    const alphaRegex = /^[a-zA-Z\s]*$/;
+    if (!alphaRegex.test(accountHolderName)) {
+        return res.status(400).json({ message: "Account Holder Name must contain only alphabets" });
+    }
+    if (!alphaRegex.test(branchLocation)) {
+        return res.status(400).json({ message: "Branch Location must contain only alphabets" });
+    }
+    if (ifscCode.length < 11 || ifscCode.length > 13) {
+        return res.status(400).json({ message: "IFSC Code must be 11 to 13 characters" });
     }
 
     try {
@@ -878,6 +978,26 @@ exports.updateInvoice = async (req, res) => {
         accountHolderName, accountNo, confirmAccountNo,
         branchLocation, ifscCode, accountType
     } = req.body;
+
+    if (!invoiceNo || !invoiceDate || !profileName || !clientName || !lineItems || lineItems.length === 0 || !dueDate || !accountHolderName || !accountNo || !branchLocation || !ifscCode || !accountType) {
+        return res.status(400).json({ message: "Missing required invoice fields (including Bank Details and Due Date)" });
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+    if (dueDate < today) {
+        return res.status(400).json({ message: "Due Date must be a current or future date" });
+    }
+
+    const alphaRegex = /^[a-zA-Z\s]*$/;
+    if (!alphaRegex.test(accountHolderName)) {
+        return res.status(400).json({ message: "Account Holder Name must contain only alphabets" });
+    }
+    if (!alphaRegex.test(branchLocation)) {
+        return res.status(400).json({ message: "Branch Location must contain only alphabets" });
+    }
+    if (ifscCode.length < 11 || ifscCode.length > 13) {
+        return res.status(400).json({ message: "IFSC Code must be 11 to 13 characters" });
+    }
 
     try {
         const spreadsheetId = SPREADSHEET_ID;

@@ -119,6 +119,12 @@ const EditInvoice = () => {
 
     const handleInvoiceChange = (e) => {
         const { name, value } = e.target;
+
+        // Alphabets only for branchLocation and accountHolderName
+        if ((name === 'branchLocation' || name === 'accountHolderName') && value !== '' && !/^[a-zA-Z\s]*$/.test(value)) {
+            return;
+        }
+
         setInvoiceData(prev => ({ ...prev, [name]: value }));
     };
 
@@ -477,14 +483,32 @@ const EditInvoice = () => {
             alert("Please select both Business Profile and Client");
             return;
         }
-        if (!invoiceData.dueDate) {
-            alert("Please select a Due Date");
-            return;
-        }
         if (lineItems.some(i => !i.item || i.quantity <= 0 || i.amount <= 0)) {
             alert("Please fill all line item details correctly (Name, Quantity, and Amount)");
             return;
         }
+
+        const today = new Date().toISOString().split('T')[0];
+        if (invoiceData.dueDate < today) {
+            alert("Due Date must be a current or future date.");
+            return;
+        }
+
+        if (!invoiceData.accountHolderName || !invoiceData.accountNo || !invoiceData.branchLocation || !invoiceData.ifscCode || !invoiceData.accountType) {
+            alert("Account Holder Name, Account No, Branch Location, IFSC Code, and Account Type are mandatory fields.");
+            return;
+        }
+
+        const alphaRegex = /^[a-zA-Z\s]*$/;
+        if (!alphaRegex.test(invoiceData.accountHolderName)) {
+            alert("Account Holder Name must contain only alphabets.");
+            return;
+        }
+        if (!alphaRegex.test(invoiceData.branchLocation)) {
+            alert("Branch Location must contain only alphabets.");
+            return;
+        }
+
         if (invoiceData.accountNo && (invoiceData.accountNo.length < 9 || invoiceData.accountNo.length > 18)) {
             alert("Account No must be between 9 and 18 digits.");
             return;
@@ -493,21 +517,11 @@ const EditInvoice = () => {
             alert("Account No and Confirm Account No must match.");
             return;
         }
-        if (invoiceData.ifscCode && invoiceData.ifscCode.length !== 11) {
-            alert("IFSC Code must be exactly 11 characters.");
+        if (invoiceData.ifscCode && (invoiceData.ifscCode.length < 11 || invoiceData.ifscCode.length > 13)) {
+            alert("IFSC Code must be 11 to 13 characters.");
             return;
         }
-
-        const alphaRegex = /^[a-zA-Z\s]*$/;
-        if (invoiceData.accountHolderName && !alphaRegex.test(invoiceData.accountHolderName)) {
-            alert("Account Holder Name must contain only alphabets.");
-            return;
-        }
-        if (invoiceData.branchLocation && !alphaRegex.test(invoiceData.branchLocation)) {
-            alert("Branch Location must contain only alphabets.");
-            return;
-        }
-
+    
         setLoading(true);
         try {
             const finalData = {
@@ -615,8 +629,8 @@ const EditInvoice = () => {
                             <input type="date" name="invoiceDate" value={invoiceData.invoiceDate} onChange={handleInvoiceChange} style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', outline: 'none' }} required />
                         </div>
                         <div>
-                            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#475569', marginBottom: '0.5rem' }}>Due Date</label>
-                            <input type="date" name="dueDate" value={invoiceData.dueDate} onChange={handleInvoiceChange} style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', outline: 'none' }} />
+                            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#475569', marginBottom: '0.5rem' }}>Due Date*</label>
+                            <input type="date" name="dueDate" value={invoiceData.dueDate} onChange={handleInvoiceChange} min={new Date().toISOString().split('T')[0]} style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', outline: 'none' }} required />
                         </div>
                     </div>
 

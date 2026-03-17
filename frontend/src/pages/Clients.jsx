@@ -86,11 +86,19 @@ const Clients = () => {
 
     const handleChange = (e) => {
         const { name, value } = e.target;
+        
+        // Alphabets only for name
+        if (name === 'name' && value !== '' && !/^[a-zA-Z\s]*$/.test(value)) return;
+
+        // Numeric only for contact and pincode
         if ((name === 'contact' || name === 'pincode') && value !== '' && !/^\d+$/.test(value)) return;
+
+        // Length limits
         if (name === 'contact' && value.length > 10) return;
         if (name === 'pincode' && value.length > 6) return;
-        if (name === 'taxNo' && value.length > 10) return;
-        if (name === 'gstNo' && value.length > 15) return;
+        if (name === 'taxNo' && value.length > 16) return;
+        if (name === 'gstNo' && value.length > 16) return;
+        
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
@@ -158,12 +166,22 @@ const Clients = () => {
         setError('');
 
         if (formData.contact.length !== 10) {
-            setError('Contact Number must be 10 digits');
+            setError('Contact Number must be exactly 10 digits');
             setLoading(false);
             return;
         }
         if (formData.pincode.length !== 6) {
-            setError('Pincode must be 6 digits');
+            setError('Pincode must be exactly 6 digits');
+            setLoading(false);
+            return;
+        }
+        if (formData.taxNo.length < 11 || formData.taxNo.length > 16) {
+            setError('TAN Number must be 11 to 16 characters');
+            setLoading(false);
+            return;
+        }
+        if (formData.gstNo.length < 11 || formData.gstNo.length > 16) {
+            setError('GST Number must be 11 to 16 characters');
             setLoading(false);
             return;
         }
@@ -341,7 +359,7 @@ const Clients = () => {
                                         </div>
                                     </div>
                                     <div className="input-group">
-                                        <label className="label">Contact No* (10 Digits)</label>
+                                        <label className="label">Contact No* (Exactly 10 Digits)</label>
                                         <div style={{ position: 'relative' }}>
                                             <Phone style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', width: '1rem', color: '#94a3b8' }} />
                                             <input type="text" className="input" style={{ paddingLeft: '2.5rem' }} name="contact" value={formData.contact} onChange={handleChange} placeholder="9876543210" maxLength="10" required />
@@ -397,7 +415,7 @@ const Clients = () => {
                                         </div>
                                     )}
                                     <div className="input-group">
-                                        <label className="label">Pincode* (6 Digits)</label>
+                                        <label className="label">Pincode* (Exactly 6 Digits)</label>
                                         <input type="text" className="input" name="pincode" value={formData.pincode} onChange={handleChange} placeholder="600001" maxLength="6" required />
                                     </div>
                                     <div style={{ gridColumn: 'span 2', marginTop: '1rem' }}>
@@ -406,12 +424,12 @@ const Clients = () => {
                                         </h4>
                                     </div>
                                     <div className="input-group">
-                                        <label className="label">Tax No (TAN)*</label>
-                                        <input type="text" className="input" name="taxNo" value={formData.taxNo} onChange={handleChange} placeholder="e.g. CHEN12345A" maxLength="10" required />
+                                        <label className="label">Tax No (TAN)* (11-16 chars)</label>
+                                        <input type="text" className="input" name="taxNo" value={formData.taxNo} onChange={handleChange} placeholder="e.g. ABCDE1234F12" maxLength="16" required />
                                     </div>
                                     <div className="input-group">
-                                        <label className="label">GST No*</label>
-                                        <input type="text" className="input" name="gstNo" value={formData.gstNo} onChange={handleChange} placeholder="e.g. 33AAACV1234F1Z5" maxLength="15" required />
+                                        <label className="label">GST No* (11-16 chars)</label>
+                                        <input type="text" className="input" name="gstNo" value={formData.gstNo} onChange={handleChange} placeholder="e.g. 33AAACV1234F1Z5A" maxLength="16" required />
                                     </div>
                                 </div>
                             </div>
