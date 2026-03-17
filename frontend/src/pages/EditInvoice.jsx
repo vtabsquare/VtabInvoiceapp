@@ -261,7 +261,20 @@ const EditInvoice = () => {
             doc.text("Invoice", 12, 25);
 
             if (logoBase64) {
-                doc.addImage(logoBase64, 'PNG', pageWidth - 40, 10, 25, 25);
+                const logoX = pageWidth - 40;
+                const logoY = 10;
+                doc.addImage(logoBase64, 'PNG', logoX, logoY, 25, 25);
+
+                // Company name below logo
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(8); 
+                doc.setTextColor(0, 0, 0);
+                doc.text(
+                    "VTAB Square Private Limited",
+                    logoX + 12.5,
+                    logoY + 32,
+                    { align: "center" }
+                );
             }
 
             const startX = 10;
@@ -269,7 +282,7 @@ const EditInvoice = () => {
             const rowHeight = 8;
             const col1W = 35;
             const col2W = 40;
-            
+
             doc.setFontSize(8.5);
             doc.setLineWidth(0.1);
             doc.setDrawColor(220, 220, 220);
@@ -285,14 +298,14 @@ const EditInvoice = () => {
                 doc.rect(startX, hy, col1W, rowHeight, 'FD');
                 doc.setFillColor(255, 255, 255);
                 doc.rect(startX + col1W, hy, col2W, rowHeight, 'FD');
-                
+
                 doc.setTextColor(0, 0, 0);
                 doc.setFont("helvetica", "bold");
                 doc.text(row[0], startX + 3, hy + 5.5);
-                
+
                 doc.setFont("helvetica", "bold");
                 doc.text(row[1], startX + col1W + 3, hy + 5.5);
-                
+
                 hy += rowHeight;
             });
         };
@@ -319,8 +332,8 @@ const EditInvoice = () => {
                     { content: "Billed To", styles: { fontStyle: 'bold', textColor: indigoColor, fontSize: 13, cellPadding: 6 } }
                 ],
                 [
-                    { content: billedByContent, styles: { fontSize: 8.5, textColor: [50, 50, 50], cellPadding: 6 } },
-                    { content: billedToContent, styles: { fontSize: 8.5, textColor: [50, 50, 50], cellPadding: 6 } }
+                    { content: billedByContent, styles: { fontSize: 6, textColor: [50, 50, 50], cellPadding: 4 } },
+                    { content: billedToContent, styles: { fontSize: 6, textColor: [50, 50, 50], cellPadding: 4 } }
                 ]
             ],
             theme: 'plain',

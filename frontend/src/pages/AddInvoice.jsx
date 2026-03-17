@@ -218,7 +218,20 @@ const AddInvoice = () => {
             doc.text("Invoice", 12, 25);
 
             if (logoBase64) {
-                doc.addImage(logoBase64, 'PNG', pageWidth - 40, 10, 25, 25);
+                const logoX = pageWidth - 40;
+                const logoY = 10;
+                doc.addImage(logoBase64, 'PNG', logoX, logoY, 25, 25);
+
+                // Company name below logo
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(8); 
+                doc.setTextColor(0, 0, 0);
+                doc.text(
+                    "VTAB Square Private Limited",
+                    logoX + 12.5,
+                    logoY + 32,
+                    { align: "center" }
+                );
             }
 
             const startX = 10;
@@ -273,8 +286,8 @@ const AddInvoice = () => {
                     { content: "Billed To", styles: { fontStyle: 'bold', textColor: indigoColor, fontSize: 13, cellPadding: 6 } }
                 ],
                 [
-                    { content: billedByContent, styles: { fontSize: 8.5, textColor: [50, 50, 50], cellPadding: 6 } },
-                    { content: billedToContent, styles: { fontSize: 8.5, textColor: [50, 50, 50], cellPadding: 6 } }
+                    { content: billedByContent, styles: { fontSize: 6, textColor: [50, 50, 50], cellPadding: 4 } },
+                    { content: billedToContent, styles: { fontSize: 6, textColor: [50, 50, 50], cellPadding: 4 } }
                 ]
             ],
             theme: 'plain',
