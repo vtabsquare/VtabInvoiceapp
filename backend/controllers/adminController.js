@@ -1,7 +1,10 @@
 const { sheets, SPREADSHEET_ID } = require("../config/googleSheet");
 const otpGenerator = require("otp-generator");
-const nodemailer = require("nodemailer");
+//const nodemailer = require("nodemailer");
+const { Resend } = require("resend");
 const otpStore = require("../utils/otpStore");
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 //login
 
@@ -36,11 +39,13 @@ exports.loginAdmin = async (req, res) => {
     }
 };
 
+
+// SEND OTP
 exports.sendOTP = async (req, res) => {
     const { email } = req.body;
 
     try {
-        // Check if email exists in admin sheet
+        // Check email exists
         const response = await sheets.spreadsheets.values.get({
             spreadsheetId: SPREADSHEET_ID,
             range: "admin login!A2:A",
@@ -53,64 +58,47 @@ exports.sendOTP = async (req, res) => {
             return res.status(404).json({ message: "Email not found in admin records" });
         }
 
+        // Generate OTP
         const otp = otpGenerator.generate(6, {
             upperCaseAlphabets: false,
             specialChars: false,
             lowerCaseAlphabets: false,
         });
 
+        // Store OTP
         otpStore[email] = {
             otp,
-            expires: Date.now() + 10 * 60 * 1000, // 10 minutes
+            expires: Date.now() + 10 * 60 * 1000,
         };
 
-        console.log("\n===========================================");
         console.log(`OTP for ${email}: ${otp}`);
-        console.log("===========================================\n");
 
-        // Try to send email - but don't fail if it doesn't work
-        let emailSent = false;
-        try {
-            const transporter = nodemailer.createTransport({
-                service: "gmail",
-                auth: {
-                    user: process.env.EMAIL_USER,
-                    pass: process.env.EMAIL_PASS,
-                },
-            });
-
-            await transporter.sendMail({
-                from: `"VTAB Square Invoice" <${process.env.EMAIL_USER}>`,
-                to: email,
-                subject: "🔐 Your OTP — VTAB Square Invoice",
-                html: `
-                    <div style="font-family: Inter, sans-serif; max-width: 480px; margin: 0 auto; padding: 2rem; background: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0;">
-                        <h2 style="color: #0f172a; margin-bottom: 0.5rem;">Password Reset OTP</h2>
-                        <p style="color: #64748b; margin-bottom: 1.5rem;">Use the code below to reset your password. Valid for <strong>10 minutes</strong>.</p>
-                        <div style="background: #0f172a; color: white; font-size: 2rem; font-weight: 800; letter-spacing: 0.5em; text-align: center; padding: 1.25rem; border-radius: 8px; margin-bottom: 1.5rem;">
-                            ${otp}
-                        </div>
-                        <p style="color: #94a3b8; font-size: 0.875rem;">© 2026 VTAB Square Invoice</p>
-                    </div>
-                `,
-            });
-            emailSent = true;
-        } catch (emailError) {
-            console.error("Email send failed:", emailError.message);
-        }
-
-        res.json({
-            message: emailSent
-                ? "OTP sent to your email successfully!"
-                : "OTP generated! Check the backend terminal for the OTP code.",
-            otp: otp, // Always return OTP for now to simplify testing
+        // Send Email using Resend
+        await resend.emails.send({
+            from: "VTAB Invoice <onboarding@resend.dev>",
+            to: email,
+            subject: "🔐 Your OTP — VTAB Square Invoice",
+            html: `
+                <div style="font-family: Inter, sans-serif; max-width:480px;margin:auto;padding:20px;border:1px solid #eee;border-radius:10px">
+                    <h2>Password Reset OTP</h2>
+                    <p>Your verification code is:</p>
+                    <h1 style="letter-spacing:6px">${otp}</h1>
+                    <p>This OTP will expire in 10 minutes.</p>
+                    <p>VTAB Square Invoice</p>
+                </div>
+            `,
         });
+
+        res.json({ message: "OTP sent successfully to your email" });
+
     } catch (error) {
-        console.error("OTP Error:", error.message);
+        console.error("OTP Error:", error);
         res.status(500).json({ error: error.message });
     }
 };
 
+
+// VERIFY OTP
 exports.verifyOTP = (req, res) => {
     const { email, otp } = req.body;
 
@@ -120,9 +108,11 @@ exports.verifyOTP = (req, res) => {
         return res.status(400).json({ message: "Invalid or expired OTP" });
     }
 
-    res.json({ message: "OTP verified" });
+    res.json({ message: "OTP verified successfully" });
 };
 
+
+// CHANGE PASSWORD
 exports.changePassword = async (req, res) => {
     const { email, otp, newPassword } = req.body;
 
@@ -145,24 +135,152 @@ exports.changePassword = async (req, res) => {
             return res.status(404).json({ message: "Email not found" });
         }
 
-        // Store password in plain text as per user request
-        const plainPassword = newPassword;
-
         await sheets.spreadsheets.values.update({
             spreadsheetId: SPREADSHEET_ID,
             range: `admin login!B${index + 2}`,
             valueInputOption: "RAW",
             requestBody: {
-                values: [[plainPassword]],
+                values: [[newPassword]],
             },
         });
 
         delete otpStore[email];
+
         res.json({ message: "Password updated successfully" });
+
     } catch (error) {
+        console.error("Change Password Error:", error);
         res.status(500).json({ error: error.message });
     }
 };
+
+// exports.sendOTP = async (req, res) => {
+//     const { email } = req.body;
+
+//     try {
+//         // Check if email exists in admin sheet
+//         const response = await sheets.spreadsheets.values.get({
+//             spreadsheetId: SPREADSHEET_ID,
+//             range: "admin login!A2:A",
+//         });
+
+//         const rows = response.data.values || [];
+//         const emailExists = rows.some((row) => row[0] === email);
+
+//         if (!emailExists) {
+//             return res.status(404).json({ message: "Email not found in admin records" });
+//         }
+
+//         const otp = otpGenerator.generate(6, {
+//             upperCaseAlphabets: false,
+//             specialChars: false,
+//             lowerCaseAlphabets: false,
+//         });
+
+//         otpStore[email] = {
+//             otp,
+//             expires: Date.now() + 10 * 60 * 1000, // 10 minutes
+//         };
+
+//         console.log("\n===========================================");
+//         console.log(`OTP for ${email}: ${otp}`);
+//         console.log("===========================================\n");
+
+//         // Try to send email - but don't fail if it doesn't work
+//         let emailSent = false;
+//         try {
+//             const transporter = nodemailer.createTransport({
+//                 service: "gmail",
+//                 auth: {
+//                     user: process.env.EMAIL_USER,
+//                     pass: process.env.EMAIL_PASS,
+//                 },
+//             });
+
+//             await transporter.sendMail({
+//                 from: `"VTAB Square Invoice" <${process.env.EMAIL_USER}>`,
+//                 to: email,
+//                 subject: "🔐 Your OTP — VTAB Square Invoice",
+//                 html: `
+//                     <div style="font-family: Inter, sans-serif; max-width: 480px; margin: 0 auto; padding: 2rem; background: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0;">
+//                         <h2 style="color: #0f172a; margin-bottom: 0.5rem;">Password Reset OTP</h2>
+//                         <p style="color: #64748b; margin-bottom: 1.5rem;">Use the code below to reset your password. Valid for <strong>10 minutes</strong>.</p>
+//                         <div style="background: #0f172a; color: white; font-size: 2rem; font-weight: 800; letter-spacing: 0.5em; text-align: center; padding: 1.25rem; border-radius: 8px; margin-bottom: 1.5rem;">
+//                             ${otp}
+//                         </div>
+//                         <p style="color: #94a3b8; font-size: 0.875rem;">© 2026 VTAB Square Invoice</p>
+//                     </div>
+//                 `,
+//             });
+//             emailSent = true;
+//         } catch (emailError) {
+//             console.error("Email send failed:", emailError.message);
+//         }
+
+//         res.json({
+//             message: emailSent
+//                 ? "OTP sent to your email successfully!"
+//                 : "OTP generated! Check the backend terminal for the OTP code.",
+//             otp: otp, // Always return OTP for now to simplify testing
+//         });
+//     } catch (error) {
+//         console.error("OTP Error:", error.message);
+//         res.status(500).json({ error: error.message });
+//     }
+// };
+
+// exports.verifyOTP = (req, res) => {
+//     const { email, otp } = req.body;
+
+//     const storedData = otpStore[email];
+
+//     if (!storedData || storedData.otp !== otp || Date.now() > storedData.expires) {
+//         return res.status(400).json({ message: "Invalid or expired OTP" });
+//     }
+
+//     res.json({ message: "OTP verified" });
+// };
+
+// exports.changePassword = async (req, res) => {
+//     const { email, otp, newPassword } = req.body;
+
+//     const storedData = otpStore[email];
+
+//     if (!storedData || storedData.otp !== otp || Date.now() > storedData.expires) {
+//         return res.status(400).json({ message: "Invalid or expired OTP" });
+//     }
+
+//     try {
+//         const response = await sheets.spreadsheets.values.get({
+//             spreadsheetId: SPREADSHEET_ID,
+//             range: "admin login!A2:A",
+//         });
+
+//         const rows = response.data.values || [];
+//         const index = rows.findIndex((row) => row[0] === email);
+
+//         if (index === -1) {
+//             return res.status(404).json({ message: "Email not found" });
+//         }
+
+//         // Store password in plain text as per user request
+//         const plainPassword = newPassword;
+
+//         await sheets.spreadsheets.values.update({
+//             spreadsheetId: SPREADSHEET_ID,
+//             range: `admin login!B${index + 2}`,
+//             valueInputOption: "RAW",
+//             requestBody: {
+//                 values: [[plainPassword]],
+//             },
+//         });
+
+//         delete otpStore[email];
+//         res.json({ message: "Password updated successfully" });
+//     } catch (error) {
+//         res.status(500).json({ error: error.message });
+//     }
+// };
 
 
 

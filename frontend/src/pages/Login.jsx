@@ -109,15 +109,15 @@ const Login = () => {
                         borderRadius: '0.875rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                         marginBottom: '1rem', boxShadow: '0 8px 20px rgba(37,99,235,0.3)'
                     }}>
-                        <img 
-                            src="/vtab.jpeg" 
-                            alt="VTAB Logo" 
-                            style={{ 
-                                width: '100%', 
-                                height: '100%', 
+                        <img
+                            src="/vtab.jpeg"
+                            alt="VTAB Logo"
+                            style={{
+                                width: '100%',
+                                height: '100%',
                                 objectFit: 'cover',
                                 borderRadius: '0.875rem'
-                            }} 
+                            }}
                         />
                     </div>
                     <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0f172a', margin: 0, letterSpacing: '-0.025em' }}>VTAB Square</h1>
