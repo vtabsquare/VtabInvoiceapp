@@ -238,8 +238,8 @@ const EditInvoice = () => {
 
         const drawPageElements = () => {
             // --- BORDER around the entire page ---
-            doc.setDrawColor(0, 0, 0);
-            doc.setLineWidth(0.1);
+            doc.setDrawColor(200, 200, 200);
+            doc.setLineWidth(0.2);
             doc.rect(5, 5, pageWidth - 10, pageHeight - 10);
 
             // --- FOOTER ---
