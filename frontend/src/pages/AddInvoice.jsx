@@ -75,7 +75,7 @@ const AddInvoice = () => {
 
     const handleInvoiceChange = (e) => {
         const { name, value } = e.target;
-        
+
         // Alphabets only for branchLocation and accountHolderName
         if ((name === 'branchLocation' || name === 'accountHolderName') && value !== '' && !/^[a-zA-Z\s]*$/.test(value)) {
             return;
@@ -210,70 +210,80 @@ const AddInvoice = () => {
                 `${prof.companyName} | GST: ${prof.gstNo || 'N/A'} | PAN: ${prof.taxNo || 'N/A'} | Email: ${prof.email || ''}`,
                 pageWidth / 2, pageHeight - 10, { align: "center" }
             );
+
+            // --- REPEATING HEADER ---
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(32);
+            doc.setTextColor(indigoColor[0], indigoColor[1], indigoColor[2]);
+            doc.text("Invoice", 12, 25);
+
+            if (logoBase64) {
+                doc.addImage(logoBase64, 'PNG', pageWidth - 40, 10, 25, 25);
+            }
+
+            const startX = 10;
+            let hy = 32;
+            const rowHeight = 8;
+            const col1W = 35;
+            const col2W = 40;
+            
+            doc.setFontSize(8.5);
+            doc.setLineWidth(0.1);
+            doc.setDrawColor(220, 220, 220);
+
+            const details = [
+                ['Invoice No #', invoice.invoiceNo],
+                ['Invoice Date', new Date(invoice.invoiceDate).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })],
+                ['Due Date', invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }) : '-']
+            ];
+
+            details.forEach(row => {
+                doc.setFillColor(248, 250, 252);
+                doc.rect(startX, hy, col1W, rowHeight, 'FD');
+                doc.setFillColor(255, 255, 255);
+                doc.rect(startX + col1W, hy, col2W, rowHeight, 'FD');
+                
+                doc.setTextColor(0, 0, 0);
+                doc.setFont("helvetica", "bold");
+                doc.text(row[0], startX + 3, hy + 5.5);
+                
+                doc.setFont("helvetica", "bold");
+                doc.text(row[1], startX + col1W + 3, hy + 5.5);
+                
+                hy += rowHeight;
+            });
         };
 
         // Draw page elements on first page
         drawPageElements();
 
-        // 1. HEADER SECTION
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(32);
-        doc.setTextColor(indigoColor[0], indigoColor[1], indigoColor[2]);
-        doc.text("Invoice", 12, 25);
-
-        // Logo on the right
-        if (logoBase64) {
-            // Increased size for the logo
-            doc.addImage(logoBase64, 'PNG', pageWidth - 70, 10, 55, 25);
-        }
-
-        // Vertical details below "Invoice"
-        doc.setFontSize(9);
-        doc.setTextColor(50, 50, 50);
-        let headerY = 35;
-        const details = [
-            { label: "Invoice No #", value: invoice.invoiceNo },
-            { label: "Invoice Date", value: new Date(invoice.invoiceDate).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }) },
-            { label: "Due Date", value: invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }) : '-' }
-        ];
-
-        details.forEach(item => {
-            doc.setFont("helvetica", "normal");
-            doc.setTextColor(100, 116, 139);
-            doc.text(item.label, 12, headerY);
-            doc.setFont("helvetica", "bold");
-            doc.setTextColor(0, 0, 0);
-            doc.text(item.value, 40, headerY);
-            headerY += 5;
-        });
-
         const profile = invoice.selectedProfile;
         const client = invoice.selectedClient;
-        let currentY = headerY + 5;
+        let currentY = 62;
 
         const boxWidth = (pageWidth - 20) / 2;
-        const billedByContent = `${profile.companyName}\n${profile.address1 || ''}, ${profile.city || ''}, ${profile.state || ''} ${profile.pincode || ''}\nGSTIN: ${profile.gstNo || 'N/A'}\nPAN: ${profile.taxNo || 'N/A'}\nEmail: ${profile.email || ''}\nPhone: ${profile.contactNo || ''}`;
-        const billedToContent = `${client.name}\n${client.address1 || ''}, ${client.address2 ? client.address2 + ', ' : ''}${client.city || ''}, ${client.state || ''} - ${client.pincode || ''}\nGSTIN: ${client.gstNo || 'N/A'}\nPAN: ${client.panNo || 'N/A'}\nEmail: ${client.email || ''}\nPhone: ${client.contact || ''}`;
+        const billedByContent = `${profile.companyName}\n\n${profile.address1 || ''}, ${profile.city || ''}, ${profile.state || ''} ${profile.pincode || ''}\n\nGSTIN: ${profile.gstNo || 'N/A'}\n\nPAN: ${profile.taxNo || 'N/A'}\n\nEmail: ${profile.email || ''}\n\nPhone: ${profile.contactNo || ''}`;
+        const billedToContent = `${client.name}\n\n${client.address1 || ''}, ${client.address2 ? client.address2 + ', ' : ''}${client.city || ''}, ${client.state || ''} - ${client.pincode || ''}\n\nGSTIN: ${client.gstNo || 'N/A'}\n\nPAN: ${client.panNo || 'N/A'}\n\nEmail: ${client.email || ''}\n\nPhone: ${client.contact || ''}`;
 
         autoTable(doc, {
             startY: currentY,
             body: [
                 [
-                    { content: "Billed By", styles: { fontStyle: 'bold', textColor: indigoColor, fontSize: 13 } },
-                    { content: "Billed To", styles: { fontStyle: 'bold', textColor: indigoColor, fontSize: 13 } }
+                    { content: "Billed By", styles: { fontStyle: 'bold', textColor: indigoColor, fontSize: 13, cellPadding: 6 } },
+                    { content: "Billed To", styles: { fontStyle: 'bold', textColor: indigoColor, fontSize: 13, cellPadding: 6 } }
                 ],
                 [
-                    { content: billedByContent, styles: { fontSize: 8.5, textColor: [50, 50, 50], cellPadding: 4 } },
-                    { content: billedToContent, styles: { fontSize: 8.5, textColor: [50, 50, 50], cellPadding: 4 } }
+                    { content: billedByContent, styles: { fontSize: 8.5, textColor: [50, 50, 50], cellPadding: 6 } },
+                    { content: billedToContent, styles: { fontSize: 8.5, textColor: [50, 50, 50], cellPadding: 6 } }
                 ]
             ],
             theme: 'plain',
-            styles: { fillColor: lavenderBg, cellPadding: 2 },
+            styles: { fillColor: lavenderBg, cellPadding: 6 },
             columnStyles: {
                 0: { cellWidth: boxWidth },
                 1: { cellWidth: boxWidth }
             },
-            margin: { left: 10, right: 10 },
+            margin: { top: 62, left: 10, right: 10 },
             tableWidth: pageWidth - 20
         });
 
@@ -309,7 +319,7 @@ const AddInvoice = () => {
                 6: { halign: 'center', cellWidth: 18 },
                 7: { halign: 'right', cellWidth: 20 },
             },
-            margin: { left: 10, right: 10 },
+            margin: { top: 62, left: 10, right: 10 },
             didDrawPage: () => {
                 drawPageElements();
             }
@@ -332,7 +342,7 @@ const AddInvoice = () => {
         if (currentY > pageHeight - 80) {
             doc.addPage();
             drawPageElements();
-            currentY = 32;
+            currentY = 62;
         }
 
         // --- TOTALS TABLE ---
@@ -355,7 +365,7 @@ const AddInvoice = () => {
                 1: { textColor: [0, 0, 0], cellWidth: 40 },
             },
             tableWidth: 100,
-            margin: { left: pageWidth - 110, right: 10 },
+            margin: { top: 62, left: pageWidth - 110, right: 10 },
             didDrawPage: () => { drawPageElements(); }
         });
         currentY = doc.lastAutoTable.finalY + 8;
@@ -365,7 +375,7 @@ const AddInvoice = () => {
             if (currentY > pageHeight - 65) {
                 doc.addPage();
                 drawPageElements();
-                currentY = 32;
+                currentY = 62;
             }
             doc.setFontSize(9);
             doc.setFont("helvetica", "bold");
@@ -387,18 +397,21 @@ const AddInvoice = () => {
                 theme: 'grid',
                 headStyles: { fillColor: [248, 250, 252], textColor: [0, 0, 0], fontStyle: 'bold', fontSize: 8 },
                 styles: { fontSize: 8, cellPadding: 3, lineColor: [220, 220, 220], lineWidth: 0.1 },
-                margin: { left: 10, right: 10 },
+                margin: { top: 62, left: 10, right: 10 },
                 didDrawPage: () => { drawPageElements(); }
             });
             currentY = doc.lastAutoTable.finalY + 10;
         }
 
         // --- SIGNATURE SECTION ---
-        if (currentY > pageHeight - 35) {
+        const sigHeightNeeded = 45; // Approx height for signature block
+        if (currentY > pageHeight - sigHeightNeeded - 25) { // 25 is page bottom margin considering border and footer
             doc.addPage();
             drawPageElements();
-            currentY = 32;
         }
+
+        // Anchor signature explicitly to the bottom of the page
+        currentY = pageHeight - sigHeightNeeded - 20;
 
         const sigX = pageWidth - 70;
         doc.setFontSize(8);
@@ -507,9 +520,9 @@ const AddInvoice = () => {
 
             let logoBase64 = null;
             try {
-                const logoUrl = `${window.location.origin}/image.png?v=${Date.now()}`;
+                const logoUrl = `${window.location.origin}/vtab.jpeg?v=${Date.now()}`;
                 console.log("Loading logo from:", logoUrl);
-                
+
                 logoBase64 = await new Promise((resolve) => {
                     const img = new Image();
                     img.crossOrigin = 'anonymous';
