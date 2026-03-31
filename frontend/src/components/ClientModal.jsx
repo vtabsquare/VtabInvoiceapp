@@ -126,7 +126,7 @@ const ClientModal = ({ isOpen, onClose, onSuccess }) => {
                                     <Briefcase style={{ width: '1rem', color: '#2563eb' }} /> Basic Information
                                 </h4>
                             </div>
-                            <div className="input-group">
+                            <div className="input-group" style={{ gridColumn: 'span 2' }}>
                                 <label style={{ display: 'block', fontSize: '0.813rem', fontWeight: 600, color: '#64748b', marginBottom: '0.5rem' }}>Client Name*</label>
                                 <input type="text" style={{ width: '100%', padding: '0.625rem 1rem', borderRadius: '0.75rem', border: '1px solid #e2e8f0', outline: 'none' }} name="name" value={formData.name} onChange={handleChange} placeholder="e.g. Acme Corp" required />
                             </div>

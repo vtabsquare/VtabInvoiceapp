@@ -175,8 +175,8 @@ const Clients = () => {
             setLoading(false);
             return;
         }
-        if (formData.taxNo.length < 11 || formData.taxNo.length > 16) {
-            setError('TAN Number must be 11 to 16 characters');
+        if (formData.taxNo.length < 10 || formData.taxNo.length > 16) {
+            setError('TAN Number must be 10 to 16 characters');
             setLoading(false);
             return;
         }
@@ -334,7 +334,7 @@ const Clients = () => {
                                             <Briefcase style={{ width: '1rem', color: '#2563eb' }} /> Basic Information
                                         </h4>
                                     </div>
-                                    <div className="input-group">
+                                    <div className="input-group" style={{ gridColumn: 'span 2' }}>
                                         <label className="label">Client Name*</label>
                                         <input type="text" className="input" name="name" value={formData.name} onChange={handleChange} placeholder="e.g. Acme Corp" required />
                                     </div>
