@@ -185,7 +185,7 @@ const AddInvoice = () => {
         }
     };
 
-    const generatePDF = (invoice, items, finalTotals, logoBase64) => {
+    const generatePDF = async (invoice, items, finalTotals, logoBase64) => {
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.width;
         const pageHeight = doc.internal.pageSize.height;
@@ -274,33 +274,109 @@ const AddInvoice = () => {
         const client = invoice.selectedClient;
         let currentY = 62;
 
-        const boxWidth = (pageWidth - 20) / 2;
-        const billedByContent = `${profile.companyName}\n\n${profile.address1 || ''}, ${profile.city || ''}, ${profile.state || ''} ${profile.pincode || ''}\n\nGSTIN: ${profile.gstNo || 'N/A'}\n\nPAN: ${profile.taxNo || 'N/A'}\n\nEmail: ${profile.email || ''}\n\nPhone: ${profile.contactNo || ''}`;
-        const billedToContent = `${client.name}\n\n${client.address1 || ''}, ${client.address2 ? client.address2 + ', ' : ''}${client.city || ''}, ${client.state || ''} - ${client.pincode || ''}\n\nGSTIN: ${client.gstNo || 'N/A'}\n\nPAN: ${client.panNo || 'N/A'}\n\nEmail: ${client.email || ''}\n\nPhone: ${client.contact || ''}`;
-
-        autoTable(doc, {
-            startY: currentY,
-            body: [
-                [
-                    { content: "Billed By", styles: { fontStyle: 'bold', textColor: indigoColor, fontSize: 13, cellPadding: 6 } },
-                    { content: "Billed To", styles: { fontStyle: 'bold', textColor: indigoColor, fontSize: 13, cellPadding: 6 } }
-                ],
-                [
-                    { content: billedByContent, styles: { fontSize: 6, textColor: [50, 50, 50], cellPadding: 4 } },
-                    { content: billedToContent, styles: { fontSize: 6, textColor: [50, 50, 50], cellPadding: 4 } }
-                ]
-            ],
-            theme: 'plain',
-            styles: { fillColor: lavenderBg, cellPadding: 6 },
-            columnStyles: {
-                0: { cellWidth: boxWidth },
-                1: { cellWidth: boxWidth }
-            },
-            margin: { top: 62, left: 10, right: 10 },
-            tableWidth: pageWidth - 20
+        // Helper to load an icon as base64 from /icons/ folder
+        const loadIcon = (iconName) => new Promise((resolve) => {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width; canvas.height = img.height;
+                canvas.getContext('2d').drawImage(img, 0, 0);
+                resolve(canvas.toDataURL('image/png'));
+            };
+            img.onerror = () => resolve(null);
+            img.src = `${window.location.origin}/icons/${iconName}.png?v=${Date.now()}`;
         });
 
-        currentY = doc.lastAutoTable.finalY + 10;
+        // Load all icons in parallel
+        const [iconUser, iconLocation, iconMail, iconPhone, iconCompany, iconGstin, iconPan] =
+            await Promise.all(['user','location','mail','phone','company','gstin','pan'].map(loadIcon));
+
+        // --- MANUAL BILLED BY / BILLED TO WITH ICONS ---
+        const colW = (pageWidth - 20) / 2; // each column width
+        const leftX = 10;  // left column start
+        const rightX = 10 + colW; // right column start
+        const iconSize = 3.0; // icon size in mm
+        const iconTextGap = 1.0; // gap between icon and text
+        const textStartOffset = iconSize + iconTextGap; // text x offset from column start + padding
+        const lineH = 3.8; // normal line height
+        const rowGap = 1.0; // gap between rows
+
+        // measure box height dynamically
+        const billedFs = 8;
+        doc.setFontSize(billedFs);
+        const innerW = colW - 8 - textStartOffset; // usable text width inside column
+
+        const profileAddr = `${profile.address1 || ''}${profile.city ? ', ' + profile.city : ''}${profile.state ? ', ' + profile.state : ''}${profile.pincode ? ' ' + profile.pincode : ''}`;
+        const clientAddr = `${client.address1 || ''}${client.address2 ? ', ' + client.address2 : ''}${client.city ? ', ' + client.city : ''}${client.state ? ', ' + client.state : ''}${client.pincode ? ' - ' + client.pincode : ''}`;
+
+        const byAddrLines = doc.splitTextToSize(profileAddr, innerW);
+        const toAddrLines = doc.splitTextToSize(clientAddr, innerW);
+
+        const byRows = [
+            { icon: iconUser,     lines: doc.splitTextToSize(profile.companyName || '', innerW) },
+            { icon: iconLocation, lines: byAddrLines },
+            { icon: iconGstin,    lines: [`GSTIN: ${profile.gstNo || 'N/A'}`] },
+            { icon: iconPan,      lines: [`PAN: ${profile.taxNo || 'N/A'}`] },
+            { icon: iconMail,     lines: [`${profile.email || ''}`] },
+            { icon: iconPhone,    lines: [`${profile.contactNo || ''}`] },
+        ];
+        const toRows = [
+            { icon: iconCompany,  lines: doc.splitTextToSize(client.name || '', innerW) },
+            { icon: iconLocation, lines: toAddrLines },
+            { icon: iconGstin,    lines: [`GSTIN: ${client.gstNo || 'N/A'}`] },
+            { icon: iconPan,      lines: [`PAN: ${client.panNo || 'N/A'}`] },
+            { icon: iconMail,     lines: [`${client.email || ''}`] },
+            { icon: iconPhone,    lines: [`${client.contact || ''}`] },
+        ];
+
+        const calcColHeight = (rows) => rows.reduce((h, r) => h + Math.max(iconSize, r.lines.length * lineH) + rowGap, 0);
+        const byH = calcColHeight(byRows);
+        const toH = calcColHeight(toRows);
+        const boxH = Math.max(byH, toH) + 20; // 10 header + 10 padding
+
+        // Draw background box (lavender)
+        doc.setFillColor(lavenderBg[0], lavenderBg[1], lavenderBg[2]);
+        doc.setDrawColor(220, 220, 220);
+        doc.setLineWidth(0.2);
+        doc.rect(leftX, currentY, pageWidth - 20, boxH, 'FD');
+
+        // Divider between columns
+        doc.setDrawColor(210, 210, 230);
+        doc.line(rightX, currentY + 2, rightX, currentY + boxH - 2);
+
+        // Headers
+        doc.setFontSize(13);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(indigoColor[0], indigoColor[1], indigoColor[2]);
+        doc.text("Billed By", leftX + 4, currentY + 7);
+        doc.text("Billed To", rightX + 4, currentY + 7);
+
+        // Draw rows helper
+        const drawRows = (rows, startX, startY) => {
+            let y = startY;
+            rows.forEach(({ icon, lines }) => {
+                const rowH = Math.max(iconSize, lines.length * lineH);
+                if (icon) {
+                    // Align icon top with text top
+                    doc.addImage(icon, 'PNG', startX + 3, y, iconSize, iconSize);
+                }
+                doc.setFontSize(billedFs);
+                doc.setFont("helvetica", "normal");
+                doc.setTextColor(50, 50, 50);
+                lines.forEach((line, i) => {
+                    // Position 2.8mm from row start matches icon visual center better
+                    doc.text(line, startX + 3 + textStartOffset, y + (i * lineH) + 2.8);
+                });
+                y += rowH + rowGap;
+            });
+        };
+
+        const contentStartY = currentY + 10;
+        drawRows(byRows, leftX, contentStartY);
+        drawRows(toRows, rightX, contentStartY);
+
+        currentY = currentY + boxH + 8;
 
         // --- LINE ITEMS TABLE ---
         const tableRows = items.map(item => [
@@ -320,7 +396,7 @@ const AddInvoice = () => {
             body: tableRows,
             theme: 'grid',
             headStyles: { fillColor: [241, 245, 249], textColor: [0, 0, 0], fontStyle: 'bold', fontSize: 6, lineWidth: 0.1 },
-            styles: { fontSize: 7.5, cellPadding: 3, lineColor: [220, 220, 220], lineWidth: 0.1 },
+            styles: { fontSize: 9.5, cellPadding: 3, lineColor: [220, 220, 220], lineWidth: 0.1 },
             alternateRowStyles: { fillColor: [252, 252, 252] },
             columnStyles: {
                 0: { cellWidth: 35 },
@@ -343,7 +419,7 @@ const AddInvoice = () => {
 
         // --- AMOUNT IN WORDS (Left side of totals) ---
         const amountInWords = numberToWords(Math.round(totalAmount));
-        doc.setFontSize(7.5);
+        doc.setFontSize(9.5);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(50, 50, 50);
         doc.text("Amount in Words:", 12, currentY + 10);
@@ -415,6 +491,83 @@ const AddInvoice = () => {
             });
             currentY = doc.lastAutoTable.finalY + 10;
         }
+
+        // --- TERMS & CONDITIONS ---
+        const termsItems = [
+            { title: 'Payment Terms', text: 'Payment must be made within the due date mentioned in the invoice. Late payments may attract additional charges or interest as applicable.' },
+            { title: 'Scope of Work', text: 'The charges mentioned are based on the agreed scope of work and hours. Any additional work outside the agreed scope will be billed separately.' },
+            { title: 'Taxes', text: 'All applicable taxes (including GST) are included/excluded as specified in the invoice and are payable by the client.' },
+            { title: 'Non-Refund Policy', text: 'Payments once made are non-refundable after the completion of services or delivery of agreed milestones.' },
+            { title: 'Dispute Resolution', text: 'Any disputes arising from this invoice shall be subject to the jurisdiction of Coimbatore, Tamil Nadu.' },
+        ];
+
+        // Pre-calculate total height needed for the box
+        const innerTextWidth = pageWidth - 36;
+        let termsBoxHeight = 16; // accounts for: box-start-pad(6) + heading(5) + separator(5)
+        termsItems.forEach(term => {
+            const wrapped = doc.splitTextToSize(term.text, innerTextWidth);
+            termsBoxHeight += 3 + (wrapped.length * 3.8) + 2; // title(3) + body-lines + gap(2)
+        });
+        termsBoxHeight += 3; // bottom inner padding
+
+        if (currentY + termsBoxHeight > pageHeight - 60) {
+            doc.addPage();
+            drawPageElements();
+            currentY = 62;
+        }
+
+        // Background box
+        doc.setFillColor(245, 245, 255);
+        doc.setDrawColor(210, 210, 245);
+        doc.setLineWidth(0.3);
+        doc.roundedRect(10, currentY, pageWidth - 20, termsBoxHeight, 3, 3, 'FD');
+
+        // Left accent bar
+        doc.setFillColor(79, 70, 229);
+        doc.rect(10, currentY, 2.5, termsBoxHeight, 'F');
+
+        currentY += 6;
+
+        // Heading
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(79, 70, 229);
+        doc.text("Terms & Conditions", 16, currentY);
+        currentY += 5;
+
+        // Separator line
+        doc.setDrawColor(79, 70, 229);
+        doc.setLineWidth(0.2);
+        doc.line(16, currentY, pageWidth - 14, currentY);
+        currentY += 5;
+
+        // Each term: bullet dot + bold title on own line, body text below
+        termsItems.forEach(term => {
+            if (currentY > pageHeight - 40) {
+                doc.addPage();
+                drawPageElements();
+                currentY = 62;
+            }
+            // Bullet dot
+            doc.setFillColor(79, 70, 229);
+            doc.circle(18, currentY - 1.2, 0.9, 'F');
+
+            // Title
+            doc.setFontSize(9.5);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(40, 40, 80);
+            doc.text(term.title, 21, currentY);
+            currentY += 3;
+
+            // Body text
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(80, 80, 100);
+            const wrappedText = doc.splitTextToSize(term.text, innerTextWidth);
+            doc.text(wrappedText, 21, currentY);
+            currentY += (wrappedText.length * 3.8) + 2;
+        });
+
+        currentY += 4;
 
         // --- SIGNATURE SECTION ---
         const sigHeightNeeded = 45; // Approx height for signature block
@@ -559,7 +712,7 @@ const AddInvoice = () => {
                 console.error("Failed to process logo image", e);
             }
 
-            generatePDF(invoiceData, lineItems, totals, logoBase64);
+            await generatePDF(invoiceData, lineItems, totals, logoBase64);
             setShowSuccessModal(true);
 
             setInvoiceData(prev => ({
