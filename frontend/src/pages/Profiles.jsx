@@ -268,45 +268,45 @@ const Profiles = () => {
                     </div>
 
                     {/* Profile List */}
-                    <div style={{ background: 'white', borderRadius: '16px', border: '1px solid #e2e8f0', overflowX: 'auto' }}>
-                        <table style={{ minWidth: '900px', width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                    <div style={{ background: 'white', borderRadius: '16px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', tableLayout: 'fixed' }}>
                             <thead>
                                 <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                                    <th style={{ padding: '1rem 1.5rem', color: '#64748b', fontWeight: 600, fontSize: '0.875rem' }}>Serial No</th>
-                                    <th style={{ padding: '1rem 1.5rem', color: '#64748b', fontWeight: 600, fontSize: '0.875rem' }}>Company Details</th>
-                                    <th style={{ padding: '1rem 1.5rem', color: '#64748b', fontWeight: 600, fontSize: '0.875rem' }}>Industry</th>
-                                    <th style={{ padding: '1rem 1.5rem', color: '#64748b', fontWeight: 600, fontSize: '0.875rem' }}>Contact</th>
-                                    <th style={{ padding: '1rem 1.5rem', color: '#64748b', fontWeight: 600, fontSize: '0.875rem' }}>Tax / GST</th>
-                                    <th style={{ padding: '1rem 1.5rem', color: '#64748b', fontWeight: 600, fontSize: '0.875rem' }}>Team</th>
-                                    <th style={{ padding: '1rem 1.5rem', color: '#64748b', fontWeight: 600, fontSize: '0.875rem' }}>Actions</th>
+                                    <th style={{ padding: '1rem 1.5rem', color: '#64748b', fontWeight: 600, fontSize: '0.75rem', verticalAlign: 'middle', width: '15%', textTransform: 'uppercase' }}>Serial No</th>
+                                    <th style={{ padding: '1rem 1.5rem', color: '#64748b', fontWeight: 600, fontSize: '0.75rem', verticalAlign: 'middle', width: '25%', textTransform: 'uppercase' }}>Company Details</th>
+                                    <th style={{ padding: '1rem 1.5rem', color: '#64748b', fontWeight: 600, fontSize: '0.75rem', verticalAlign: 'middle', width: '15%', textTransform: 'uppercase' }}>Industry</th>
+                                    <th style={{ padding: '1rem 1.5rem', color: '#64748b', fontWeight: 600, fontSize: '0.75rem', verticalAlign: 'middle', width: '20%', textTransform: 'uppercase' }}>Contact</th>
+                                    <th style={{ padding: '1rem 1.5rem', color: '#64748b', fontWeight: 600, fontSize: '0.75rem', verticalAlign: 'middle', width: '15%', textTransform: 'uppercase' }}>Tax / GST</th>
+                                    <th style={{ padding: '1rem 1.5rem', color: '#64748b', fontWeight: 600, fontSize: '0.75rem', verticalAlign: 'middle', width: '10%', textTransform: 'uppercase' }}>Team</th>
+                                    <th style={{ padding: '1rem 1.5rem', color: '#64748b', fontWeight: 600, fontSize: '0.75rem', verticalAlign: 'middle', width: '100px', textTransform: 'uppercase' }}>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {filteredProfiles.length > 0 ? filteredProfiles.map((p) => (
                                     <tr key={p.serialNo} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                        <td style={{ padding: '1.25rem 1.5rem' }}>
-                                            <span style={{ padding: '0.25rem 0.5rem', background: '#f1f5f9', borderRadius: '6px', color: '#475569', fontWeight: 600, fontSize: '0.875rem' }}>#{p.serialNo}</span>
+                                        <td style={{ padding: '0.75rem 1.5rem', verticalAlign: 'middle' }}>
+                                            <span style={{ padding: '0.2rem 0.4rem', background: '#f1f5f9', borderRadius: '4px', color: '#475569', fontWeight: 600, fontSize: '0.75rem', whiteSpace: 'nowrap' }}>#{p.serialNo}</span>
                                         </td>
-                                        <td style={{ padding: '1.25rem 1.5rem' }}>
-                                            <div style={{ fontWeight: 600, color: '#0f172a' }}>{p.companyName}</div>
-                                            <div style={{ fontSize: '0.875rem', color: '#64748b' }}>{p.email}</div>
+                                        <td style={{ padding: '0.75rem 1.5rem', verticalAlign: 'middle', overflow: 'hidden' }}>
+                                            <div style={{ fontWeight: 600, color: '#0f172a', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }} title={p.companyName}>{p.companyName}</div>
+                                            <div style={{ fontSize: '0.75rem', color: '#64748b', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }} title={p.email}>{p.email}</div>
                                         </td>
-                                        <td style={{ padding: '1.25rem 1.5rem' }}>
-                                            <div style={{ color: '#334155', fontWeight: 500 }}>{p.industry || 'Not Specified'}</div>
+                                        <td style={{ padding: '0.75rem 1.5rem', verticalAlign: 'middle', overflow: 'hidden' }}>
+                                            <div style={{ color: '#334155', fontWeight: 500, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }} title={p.industry}>{p.industry || 'N/A'}</div>
                                         </td>
-                                        <td style={{ padding: '1.25rem 1.5rem' }}>
-                                            <div style={{ color: '#334155', fontWeight: 500 }}>{p.pointOfContact}</div>
-                                            <div style={{ fontSize: '0.875rem', color: '#64748b' }}>{p.contactNo}</div>
+                                        <td style={{ padding: '0.75rem 1.5rem', verticalAlign: 'middle', overflow: 'hidden' }}>
+                                            <div style={{ color: '#334155', fontWeight: 500, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }} title={p.pointOfContact}>{p.pointOfContact}</div>
+                                            <div style={{ fontSize: '0.75rem', color: '#64748b', whiteSpace: 'nowrap' }}>{p.contactNo}</div>
                                         </td>
-                                        <td style={{ padding: '1.25rem 1.5rem' }}>
-                                            <div style={{ color: '#334155', fontSize: '0.875rem' }}>TAN: <span style={{ fontWeight: 600 }}>{p.taxNo || 'N/A'}</span></div>
-                                            <div style={{ color: '#64748b', fontSize: '0.875rem' }}>GST: <span style={{ fontWeight: 600 }}>{p.gstNo || 'N/A'}</span></div>
+                                        <td style={{ padding: '0.75rem 1.5rem', verticalAlign: 'middle', overflow: 'hidden' }}>
+                                            <div style={{ color: '#334155', fontSize: '0.75rem', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>T: <span style={{ fontWeight: 600 }}>{p.taxNo || 'N/A'}</span></div>
+                                            <div style={{ color: '#64748b', fontSize: '0.7rem', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>G: <span style={{ fontWeight: 600 }}>{p.gstNo || 'N/A'}</span></div>
                                         </td>
-                                        <td style={{ padding: '1.25rem 1.5rem' }}>
-                                            <span style={{ padding: '0.25rem 0.75rem', background: '#eff6ff', borderRadius: '20px', color: '#2563eb', fontWeight: 600, fontSize: '0.75rem' }}>{p.teamSize}</span>
+                                        <td style={{ padding: '0.75rem 1.5rem', verticalAlign: 'middle' }}>
+                                            <span style={{ padding: '0.15rem 0.4rem', background: '#eff6ff', borderRadius: '4px', color: '#2563eb', fontWeight: 800, fontSize: '0.65rem', whiteSpace: 'nowrap', border: '1px solid #bfdbfe' }}>{p.teamSize}</span>
                                         </td>
-                                        <td style={{ padding: '1.25rem 1.5rem' }}>
-                                            <div style={{ display: 'flex', gap: '0.75rem' }}>
+                                        <td style={{ padding: '0.75rem 1.5rem', verticalAlign: 'middle' }}>
+                                            <div style={{ display: 'flex', gap: '0.5rem' }}>
                                                 <button
                                                     onClick={() => handleEdit(p)}
                                                     style={{ background: '#f1f5f9', border: 'none', padding: '0.5rem', borderRadius: '8px', cursor: 'pointer', color: '#475569', transition: 'all 0.2s' }}

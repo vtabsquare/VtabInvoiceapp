@@ -74,6 +74,9 @@ router.put("/invoices/:serialNo", adminController.updateInvoice);
 // Delete invoice
 router.delete("/invoices/:serialNo", adminController.deleteInvoice);
 
+// Update status
+router.patch("/invoices/:serialNo/status", adminController.updateInvoiceStatuses);
+
 
 /*
 ================================

@@ -40,6 +40,30 @@ const Invoices = () => {
         }
     };
 
+    const handleStatusUpdate = async (serialNo, field, value) => {
+        const fieldLabels = {
+            invoiceStatus: 'Invoice Status',
+            gstStatus: 'GST Status',
+            accountsStatus: 'Accounts Status'
+        };
+        
+        if (!window.confirm(`Are you sure you want to change ${fieldLabels[field]} to "${value}"?`)) {
+            return;
+        }
+
+        try {
+            await axios.patch(`${API_BASE_URL}/invoices/${serialNo}/status`, {
+                [field]: value
+            });
+            // Update local state
+            setInvoices(prev => prev.map(inv => 
+                inv.serialNo === serialNo ? { ...inv, [field]: value } : inv
+            ));
+        } catch (err) {
+            alert(err.response?.data?.message || 'Failed to update status');
+        }
+    };
+
     const filteredInvoices = invoices.filter(inv =>
         inv.invoiceNo?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         inv.clientName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -105,13 +129,16 @@ const Invoices = () => {
                                 <th style={{ padding: '1rem 1.5rem', color: '#64748b', fontWeight: 600, fontSize: '0.875rem' }}>Billed Details</th>
                                 <th style={{ padding: '1rem 1.5rem', color: '#64748b', fontWeight: 600, fontSize: '0.875rem' }}>Dates</th>
                                 <th style={{ padding: '1rem 1.5rem', color: '#64748b', fontWeight: 600, fontSize: '0.875rem', textAlign: 'right' }}>Amount</th>
+                                <th style={{ padding: '1rem 1.5rem', color: '#64748b', fontWeight: 600, fontSize: '0.875rem' }}>Inv Status</th>
+                                <th style={{ padding: '1rem 1.5rem', color: '#64748b', fontWeight: 600, fontSize: '0.875rem' }}>GST Status</th>
+                                <th style={{ padding: '1rem 1.5rem', color: '#64748b', fontWeight: 600, fontSize: '0.875rem' }}>Acc Status</th>
                                 <th style={{ padding: '1rem 1.5rem', color: '#64748b', fontWeight: 600, fontSize: '0.875rem' }}>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             {loading ? (
                                 <tr>
-                                    <td colSpan="5" style={{ padding: '4rem', textAlign: 'center', color: '#94a3b8' }}>
+                                    <td colSpan="8" style={{ padding: '4rem', textAlign: 'center', color: '#94a3b8' }}>
                                         <p>Loading invoices...</p>
                                     </td>
                                 </tr>
@@ -147,6 +174,67 @@ const Invoices = () => {
                                         </div>
                                     </td>
                                     <td style={{ padding: '1.25rem 1.5rem' }}>
+                                        <select 
+                                            value={inv.invoiceStatus || 'Pending'}
+                                            onChange={(e) => handleStatusUpdate(inv.serialNo, 'invoiceStatus', e.target.value)}
+                                            style={{ 
+                                                padding: '0.4rem 0.6rem', 
+                                                borderRadius: '8px', 
+                                                border: '1px solid #e2e8f0', 
+                                                fontSize: '0.75rem', 
+                                                fontWeight: 600,
+                                                background: inv.invoiceStatus === 'Approved' ? '#f0fdf4' : inv.invoiceStatus === 'Rejected' ? '#fef2f2' : '#fff7ed',
+                                                color: inv.invoiceStatus === 'Approved' ? '#16a34a' : inv.invoiceStatus === 'Rejected' ? '#ef4444' : '#ea580c',
+                                                cursor: 'pointer',
+                                                outline: 'none'
+                                            }}
+                                        >
+                                            <option value="Pending">Pending</option>
+                                            <option value="Approved">Approved</option>
+                                            <option value="Rejected">Rejected</option>
+                                        </select>
+                                    </td>
+                                    <td style={{ padding: '1.25rem 1.5rem' }}>
+                                        <select 
+                                            value={inv.gstStatus || 'Not Filed'}
+                                            onChange={(e) => handleStatusUpdate(inv.serialNo, 'gstStatus', e.target.value)}
+                                            style={{ 
+                                                padding: '0.4rem 0.6rem', 
+                                                borderRadius: '8px', 
+                                                border: '1px solid #e2e8f0', 
+                                                fontSize: '0.75rem', 
+                                                fontWeight: 600,
+                                                background: inv.gstStatus === 'Filed' ? '#f0fdf4' : '#fef2f2',
+                                                color: inv.gstStatus === 'Filed' ? '#16a34a' : '#ef4444',
+                                                cursor: 'pointer',
+                                                outline: 'none'
+                                            }}
+                                        >
+                                            <option value="Filed">Filed</option>
+                                            <option value="Not Filed">Not Filed</option>
+                                        </select>
+                                    </td>
+                                    <td style={{ padding: '1.25rem 1.5rem' }}>
+                                        <select 
+                                            value={inv.accountsStatus || 'Fund Pending'}
+                                            onChange={(e) => handleStatusUpdate(inv.serialNo, 'accountsStatus', e.target.value)}
+                                            style={{ 
+                                                padding: '0.4rem 0.6rem', 
+                                                borderRadius: '8px', 
+                                                border: '1px solid #e2e8f0', 
+                                                fontSize: '0.75rem', 
+                                                fontWeight: 600,
+                                                background: inv.accountsStatus === 'Fund Retrieved' ? '#f0fdf4' : '#fff7ed',
+                                                color: inv.accountsStatus === 'Fund Retrieved' ? '#16a34a' : '#ea580c',
+                                                cursor: 'pointer',
+                                                outline: 'none'
+                                            }}
+                                        >
+                                            <option value="Fund Retrieved">Fund Retrieved</option>
+                                            <option value="Fund Pending">Fund Pending</option>
+                                        </select>
+                                    </td>
+                                    <td style={{ padding: '1.25rem 1.5rem' }}>
                                         <div style={{ display: 'flex', gap: '0.75rem' }}>
                                             <button
                                                 onClick={() => navigate(`/edit-invoice/${inv.serialNo}`)}
@@ -167,7 +255,7 @@ const Invoices = () => {
                                 </tr>
                             )) : (
                                 <tr>
-                                    <td colSpan="5" style={{ padding: '4rem', textAlign: 'center', color: '#94a3b8' }}>
+                                    <td colSpan="8" style={{ padding: '4rem', textAlign: 'center', color: '#94a3b8' }}>
                                         <FileText style={{ width: '48px', height: '48px', margin: '0 auto 1rem', opacity: 0.2 }} />
                                         <p>No invoices found</p>
                                     </td>

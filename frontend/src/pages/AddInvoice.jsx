@@ -189,9 +189,9 @@ const AddInvoice = () => {
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.width;
         const pageHeight = doc.internal.pageSize.height;
-        const indigoColor = [79, 70, 229]; // Indigo-600
-        const lavenderBg = [240, 240, 255];
         const borderColor = [220, 220, 220];
+        const sigHeightNeeded = 45; // Approx height for signature block
+        const sigSpaceLimit = pageHeight - sigHeightNeeded - 25; // Space reserved for signature
 
         const drawPageElements = () => {
             // --- BORDER around the entire page ---
@@ -224,7 +224,7 @@ const AddInvoice = () => {
 
                 // Company name below logo
                 doc.setFont("helvetica", "normal");
-                doc.setFontSize(8); 
+                doc.setFontSize(8);
                 doc.setTextColor(0, 0, 0);
                 doc.text(
                     "VTAB Square Private Limited",
@@ -239,7 +239,7 @@ const AddInvoice = () => {
             const rowHeight = 8;
             const col1W = 35;
             const col2W = 40;
-            
+
             doc.setFontSize(8.5);
             doc.setLineWidth(0.1);
             doc.setDrawColor(220, 220, 220);
@@ -255,14 +255,14 @@ const AddInvoice = () => {
                 doc.rect(startX, hy, col1W, rowHeight, 'FD');
                 doc.setFillColor(255, 255, 255);
                 doc.rect(startX + col1W, hy, col2W, rowHeight, 'FD');
-                
+
                 doc.setTextColor(0, 0, 0);
                 doc.setFont("helvetica", "bold");
                 doc.text(row[0], startX + 3, hy + 5.5);
-                
+
                 doc.setFont("helvetica", "bold");
                 doc.text(row[1], startX + col1W + 3, hy + 5.5);
-                
+
                 hy += rowHeight;
             });
         };
@@ -290,7 +290,7 @@ const AddInvoice = () => {
 
         // Load all icons in parallel
         const [iconUser, iconLocation, iconMail, iconPhone, iconCompany, iconGstin, iconPan] =
-            await Promise.all(['user','location','mail','phone','company','gstin','pan'].map(loadIcon));
+            await Promise.all(['user', 'location', 'mail', 'phone', 'company', 'gstin', 'pan'].map(loadIcon));
 
         // --- MANUAL BILLED BY / BILLED TO WITH ICONS ---
         const colW = (pageWidth - 20) / 2; // each column width
@@ -314,20 +314,20 @@ const AddInvoice = () => {
         const toAddrLines = doc.splitTextToSize(clientAddr, innerW);
 
         const byRows = [
-            { icon: iconUser,     lines: doc.splitTextToSize(profile.companyName || '', innerW) },
+            { icon: iconUser, lines: doc.splitTextToSize(profile.companyName || '', innerW) },
             { icon: iconLocation, lines: byAddrLines },
-            { icon: iconGstin,    lines: [`GSTIN: ${profile.gstNo || 'N/A'}`] },
-            { icon: iconPan,      lines: [`PAN: ${profile.taxNo || 'N/A'}`] },
-            { icon: iconMail,     lines: [`${profile.email || ''}`] },
-            { icon: iconPhone,    lines: [`${profile.contactNo || ''}`] },
+            { icon: iconGstin, lines: [`GSTIN: ${profile.gstNo || 'N/A'}`] },
+            { icon: iconPan, lines: [`PAN: ${profile.taxNo || 'N/A'}`] },
+            { icon: iconMail, lines: [`${profile.email || ''}`] },
+            { icon: iconPhone, lines: [`${profile.contactNo || ''}`] },
         ];
         const toRows = [
-            { icon: iconCompany,  lines: doc.splitTextToSize(client.name || '', innerW) },
+            { icon: iconCompany, lines: doc.splitTextToSize(client.name || '', innerW) },
             { icon: iconLocation, lines: toAddrLines },
-            { icon: iconGstin,    lines: [`GSTIN: ${client.gstNo || 'N/A'}`] },
-            { icon: iconPan,      lines: [`PAN: ${client.panNo || 'N/A'}`] },
-            { icon: iconMail,     lines: [`${client.email || ''}`] },
-            { icon: iconPhone,    lines: [`${client.contact || ''}`] },
+            { icon: iconGstin, lines: [`GSTIN: ${client.gstNo || 'N/A'}`] },
+            { icon: iconPan, lines: [`PAN: ${client.panNo || 'N/A'}`] },
+            { icon: iconMail, lines: [`${client.email || ''}`] },
+            { icon: iconPhone, lines: [`${client.contact || ''}`] },
         ];
 
         const calcColHeight = (rows) => rows.reduce((h, r) => h + Math.max(iconSize, r.lines.length * lineH) + rowGap, 0);
@@ -335,17 +335,23 @@ const AddInvoice = () => {
         const toH = calcColHeight(toRows);
         const boxH = Math.max(byH, toH) + 20; // 10 header + 10 padding
 
-        // Draw background box (lavender)
+        const contentStartY = currentY + 12;
+
+        // Draw header rectangles (Light Lavender color from Image)
         doc.setFillColor(lavenderBg[0], lavenderBg[1], lavenderBg[2]);
+        doc.rect(leftX, currentY, pageWidth - 20, 10, 'F');
+
+        // Draw content rectangles (White background/Gray Mixture for details)
+        doc.setFillColor(252, 252, 252);
         doc.setDrawColor(220, 220, 220);
         doc.setLineWidth(0.2);
-        doc.rect(leftX, currentY, pageWidth - 20, boxH, 'FD');
+        doc.rect(leftX, currentY + 10, pageWidth - 20, boxH - 10, 'FD');
 
         // Divider between columns
         doc.setDrawColor(210, 210, 230);
         doc.line(rightX, currentY + 2, rightX, currentY + boxH - 2);
 
-        // Headers
+        // Headers (Purple text on light background)
         doc.setFontSize(13);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(indigoColor[0], indigoColor[1], indigoColor[2]);
@@ -372,9 +378,9 @@ const AddInvoice = () => {
             });
         };
 
-        const contentStartY = currentY + 10;
-        drawRows(byRows, leftX, contentStartY);
-        drawRows(toRows, rightX, contentStartY);
+        const contentStartYActual = currentY + 12;
+        drawRows(byRows, leftX, contentStartYActual);
+        drawRows(toRows, rightX, contentStartYActual);
 
         currentY = currentY + boxH + 8;
 
@@ -510,10 +516,30 @@ const AddInvoice = () => {
         });
         termsBoxHeight += 3; // bottom inner padding
 
-        if (currentY + termsBoxHeight > pageHeight - 60) {
+        // --- POSITIONING LOGIC FOR TERMS ---
+        let isNewPageForTerms = false;
+        if (currentY + termsBoxHeight > sigSpaceLimit) {
             doc.addPage();
             drawPageElements();
             currentY = 62;
+            isNewPageForTerms = true;
+        }
+
+        if (isNewPageForTerms) {
+            // Case 1: If current page only has terms, center it vertically
+            const availableH = sigSpaceLimit - 62;
+            if (termsBoxHeight < availableH) {
+                currentY = 62 + (availableH - termsBoxHeight) / 2;
+            }
+        } else {
+            // Case 2: Mixed content page, fill the gap naturally
+            const availableGap = sigSpaceLimit - (currentY + termsBoxHeight);
+            if (availableGap > 20) {
+                // Centering slightly within the available gap
+                currentY += availableGap / 2;
+            } else {
+                currentY += 10; // Minimum margin from previous content
+            }
         }
 
         // Background box
@@ -570,8 +596,7 @@ const AddInvoice = () => {
         currentY += 4;
 
         // --- SIGNATURE SECTION ---
-        const sigHeightNeeded = 45; // Approx height for signature block
-        if (currentY > pageHeight - sigHeightNeeded - 25) { // 25 is page bottom margin considering border and footer
+        if (currentY > sigSpaceLimit) {
             doc.addPage();
             drawPageElements();
         }

@@ -946,7 +946,10 @@ exports.addInvoice = async (req, res) => {
             confirmAccountNo || "",
             branchLocation || "",
             ifscCode || "",
-            accountType || ""
+            accountType || "",
+            "Pending",          // S (Index 18) - Invoice Status
+            "Not Filed",        // T (Index 19) - GST Status
+            "Fund Pending"      // U (Index 20) - Accounts Status
         ]];
 
         // Save to invoice header
@@ -981,7 +984,7 @@ exports.getInvoices = async (req, res) => {
 
         const response = await sheets.spreadsheets.values.get({
             spreadsheetId: spreadsheetId,
-            range: `${tabName}!A2:R`,
+            range: `${tabName}!A2:U`,
         });
 
         const rows = response.data.values || [];
@@ -1001,6 +1004,7 @@ exports.getInvoices = async (req, res) => {
             amount: row[6],
             sgst: row[7],
             cgst: row[8],
+            tds: row[9],
             tax: row[9],
             total: row[10],
             signature: row[11] || "",
@@ -1009,7 +1013,10 @@ exports.getInvoices = async (req, res) => {
             confirmAccountNo: row[14] || "",
             branchLocation: row[15] || "",
             ifscCode: row[16] || "",
-            accountType: row[17] || ""
+            accountType: row[17] || "",
+            invoiceStatus: row[18] || "Pending",
+            gstStatus: row[19] || "Not Filed",
+            accountsStatus: row[20] || "Fund Pending"
         }));
 
         res.json(invoices);
@@ -1029,7 +1036,7 @@ exports.getInvoiceBySerial = async (req, res) => {
         // Get Header
         const headerRes = await sheets.spreadsheets.values.get({
             spreadsheetId,
-            range: `${headerTab}!A2:R`,
+            range: `${headerTab}!A2:U`,
         });
         const headerRows = headerRes.data.values || [];
         const headerRow = headerRows.find(row => row[0]?.toString().trim() === serialNo.toString().trim());
@@ -1056,7 +1063,10 @@ exports.getInvoiceBySerial = async (req, res) => {
             confirmAccountNo: headerRow[14] || "",
             branchLocation: headerRow[15] || "",
             ifscCode: headerRow[16] || "",
-            accountType: headerRow[17] || ""
+            accountType: headerRow[17] || "",
+            invoiceStatus: headerRow[18] || "Pending",
+            gstStatus: headerRow[19] || "Not Filed",
+            accountsStatus: headerRow[20] || "Fund Pending"
         };
 
         // Get Details
@@ -1380,6 +1390,65 @@ exports.deleteInvoice = async (req, res) => {
         res.json({ message: "Invoice deleted successfully" });
     } catch (error) {
         console.error("Delete Invoice Error:", error.message);
+        res.status(500).json({ error: error.message });
+    }
+};
+exports.updateInvoiceStatuses = async (req, res) => {
+    const { serialNo } = req.params;
+    const { invoiceStatus, gstStatus, accountsStatus } = req.body;
+
+    try {
+        const spreadsheetId = SPREADSHEET_ID;
+        const headerTab = "invoice header";
+
+        const response = await sheets.spreadsheets.values.get({
+            spreadsheetId,
+            range: `${headerTab}!A:A`, // Match by Serial No
+        });
+        const rows = response.data.values || [];
+        console.log(`Searching for Serial No: "${serialNo}" in ${rows.length} rows`);
+        const rowIndex = rows.findIndex(row => row[0]?.toString().trim() === serialNo.toString().trim());
+
+        if (rowIndex === -1) {
+            console.error(`Invoice with Serial No "${serialNo}" NOT FOUND in sheet.`);
+            return res.status(404).json({ message: `Invoice #${serialNo} not found.` });
+        }
+
+        const sheetRowIndex = rowIndex + 1; // 1-indexed for sheets
+        const updates = [];
+
+        if (invoiceStatus) {
+            updates.push({
+                range: `${headerTab}!S${sheetRowIndex}`,
+                values: [[invoiceStatus]]
+            });
+        }
+        if (gstStatus) {
+            updates.push({
+                range: `${headerTab}!T${sheetRowIndex}`,
+                values: [[gstStatus]]
+            });
+        }
+        if (accountsStatus) {
+            updates.push({
+                range: `${headerTab}!U${sheetRowIndex}`,
+                values: [[accountsStatus]]
+            });
+        }
+
+        if (updates.length > 0) {
+            await sheets.spreadsheets.values.batchUpdate({
+                spreadsheetId,
+                requestBody: {
+                    valueInputOption: "RAW",
+                    data: updates
+                }
+            });
+        }
+
+        res.json({ message: "Statuses updated successfully" });
+    } catch (error) {
+        console.error("Update Invoice Status Error:", error.message);
         res.status(500).json({ error: error.message });
     }
 };
