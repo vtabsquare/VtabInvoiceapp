@@ -95,7 +95,7 @@ const Dashboard = () => {
                     boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
                 }}>
                     <div>
-                        <h2 style={{ fontWeight: 700, fontSize: '1.25rem', color: '#0f172a', margin: 0 }}>Invoice Dashboard</h2>
+                        <h2 style={{ fontWeight: 700, fontSize: '1.25rem', color: '#0f172a', margin: 0 }}>Invoice Application</h2>
                         <p style={{ color: '#64748b', fontSize: '0.875rem', margin: '0.25rem 0 0 0' }}>
                             Comprehensive filtered overview and dynamic calculations.
                         </p>
@@ -261,8 +261,15 @@ const Dashboard = () => {
                                         filteredInvoices.map((inv, idx) => (
                                             <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: idx % 2 === 0 ? 'white' : '#fcfdfe' }}>
                                                 <td style={{ padding: '1.25rem 1.5rem' }}>
-                                                    <div style={{ fontWeight: 700, color: '#0f172a' }}>#{inv.invoiceNo}</div>
-                                                    <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem' }}>{inv.invoiceDate}</div>
+                                                    <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.875rem' }}>#{inv.invoiceNo}</div>
+                                                    <div style={{ fontSize: '0.813rem', color: '#334155', marginTop: '0.25rem', fontWeight: 500 }}>
+                                                        {new Date(inv.invoiceDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                    </div>
+                                                    {inv.dueDate && (
+                                                        <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.125rem' }}>
+                                                            Due: {new Date(inv.dueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                        </div>
+                                                    )}
                                                 </td>
                                                 <td style={{ padding: '1.25rem 1.5rem' }}>
                                                     <div style={{ fontWeight: 600, color: '#1e293b', fontSize: '0.875rem' }}>{inv.clientName}</div>

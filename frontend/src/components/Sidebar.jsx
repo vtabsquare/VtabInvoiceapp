@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
     LayoutDashboard, Users as UsersIcon, Building2,
-    FileText, Settings, LogOut, IndianRupee, Menu, X
+    FileText, TrendingUp, Settings, LogOut, IndianRupee, Menu, X
 } from 'lucide-react';
 
 const Sidebar = () => {
@@ -13,9 +13,9 @@ const Sidebar = () => {
 
     const navItems = [
         { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
-        { label: 'Clients', icon: UsersIcon, path: '/clients' },
-        { label: 'Profiles', icon: Building2, path: '/profiles' },
-        { label: 'Invoices', icon: FileText, path: '/invoices' },
+        { label: 'Client Application', icon: UsersIcon, path: '/clients' },
+        { label: 'Client Application', icon: Building2, path: '/profiles' },
+        { label: 'Invoice Application', icon: FileText, path: '/invoices' },
     ];
 
     const handleLogout = () => {

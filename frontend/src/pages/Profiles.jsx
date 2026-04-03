@@ -242,7 +242,7 @@ const Profiles = () => {
             <main style={{ flex: 1, overflow: 'auto' }} className="animate-fade-in-up main-content">
                 <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2.5rem', padding: '1.25rem 2rem' }} className="profiles-header">
                     <div>
-                        <h1 style={{ fontSize: '1.875rem', fontWeight: 800, color: '#0f172a', marginBottom: '0.5rem' }}>Profile Management</h1>
+                        <h1 style={{ fontSize: '1.875rem', fontWeight: 800, color: '#0f172a', marginBottom: '0.5rem' }}>Client Application</h1>
                         <p style={{ color: '#64748b', fontSize: '1rem' }} className="header-subtext">Manage your business profiles and branches</p>
                     </div>
                     <button

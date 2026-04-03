@@ -95,8 +95,8 @@ const Invoices = () => {
             <main style={{ flex: 1, overflow: 'auto' }} className="animate-fade-in-up main-content">
                 <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2.5rem', padding: '1.25rem 2rem' }} className="invoices-header">
                     <div>
-                        <h1 style={{ fontSize: '1.875rem', fontWeight: 800, color: '#0f172a', marginBottom: '0.5rem' }}>Invoice Management</h1>
-                        <p style={{ color: '#64748b', fontSize: '1rem' }} className="header-subtext">Track and manage all your business invoices</p>
+                        <h1 style={{ fontSize: '1.875rem', fontWeight: 800, color: '#0f172a', marginBottom: '0.5rem' }}>Invoice Application</h1>
+                        <p style={{ color: '#64748b', fontSize: '1rem' }} className="header-subtext">Comprehensive overview of all your business invoices</p>
                     </div>
                     <button
                         onClick={() => navigate('/add-invoice')}
@@ -157,9 +157,9 @@ const Invoices = () => {
                                         </div>
                                     </td>
                                     <td style={{ padding: '1.25rem 1.5rem' }}>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                                            <div style={{ fontSize: '0.875rem', color: '#334155', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                <Calendar size={14} style={{ color: '#94a3b8' }} /> {formatDate(inv.invoiceDate)}
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.125rem' }}>
+                                            <div style={{ fontSize: '0.875rem', color: '#334155', fontWeight: 600 }}>
+                                                {formatDate(inv.invoiceDate)}
                                             </div>
                                             {inv.dueDate && (
                                                 <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
