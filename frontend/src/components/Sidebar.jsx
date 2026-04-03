@@ -42,16 +42,16 @@ const Sidebar = () => {
             }} className="mobile-header">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                     <div style={{ width: '32px', height: '32px', background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <img 
-                            src="/vtab.jpeg" 
-                            alt="VTAB Logo" 
-                            style={{ 
-                                width: '100%', 
-                                height: '100%', 
+                        <img
+                            src="/vtab.jpeg"
+                            alt="VTAB Logo"
+                            style={{
+                                width: '100%',
+                                height: '100%',
                                 objectFit: 'cover',
                                 borderRadius: '2px'
-                            }} 
-                        /> 
+                            }}
+                        />
                     </div>
                     <span style={{ fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>VTAB Square Invoice</span>
                 </div>
@@ -88,18 +88,22 @@ const Sidebar = () => {
                 <div style={{
                     padding: '2rem 1.5rem',
                     display: 'flex',
+                    flexDirection: 'column',
                     alignItems: 'center',
-                    gap: '0.75rem',
+                    textAlign: 'center',
+                    gap: '1rem',
                     borderBottom: '1px solid #f1f5f9'
                 }}>
                     <div style={{
-                        width: '40px',
-                        height: '40px',
+                        width: '60px',
+                        height: '60px',
                         background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
-                        borderRadius: '12px',
+                        borderRadius: '14px',
+                        padding: '2px', // subtle border effect
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'center'
+                        justifyContent: 'center',
+                        boxShadow: '0 4px 12px rgba(99, 102, 241, 0.2)'
                     }}>
                         <img
                             src="/vtab.jpeg"
@@ -108,12 +112,21 @@ const Sidebar = () => {
                                 width: '100%',
                                 height: '100%',
                                 objectFit: 'cover',
-                                borderRadius: '2px'
+                                borderRadius: '12px'
                             }}
                         />
                     </div>
-                    <div style={{ flex: 1 }}>
-                        <span style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em' }}>VTAB Square Invoice</span>
+                    <div style={{ flex: 1, marginTop: '0.5rem' }}>
+                        <span style={{ 
+                            fontSize: '1.25rem', 
+                            fontWeight: 800, 
+                            color: '#6c6ceaff', 
+                            letterSpacing: '-0.02em',
+                            display: 'block',
+                            lineHeight: 1.2
+                        }}>
+                            VTAB Square
+                        </span>
                     </div>
                     <button
                         className="mobile-close"
@@ -124,85 +137,107 @@ const Sidebar = () => {
                     </button>
                 </div>
 
-                <nav style={{ padding: '1.5rem 1rem', flex: 1 }}>
-                    {navItems.map((item) => {
-                        const isActive = location.pathname === item.path;
-                        return (
-                            <button
-                                key={item.label}
-                                onClick={() => {
-                                    navigate(item.path);
-                                    setIsOpen(false);
-                                }}
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '0.75rem',
-                                    width: '100%',
-                                    padding: '0.875rem 1rem',
-                                    marginBottom: '0.5rem',
-                                    borderRadius: '12px',
-                                    border: 'none',
-                                    background: isActive ? '#eff6ff' : 'transparent',
-                                    color: isActive ? '#2563eb' : '#64748b',
-                                    fontWeight: isActive ? 600 : 500,
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s',
-                                    textAlign: 'left'
-                                }}
-                                onMouseEnter={(e) => {
-                                    if (!isActive) {
-                                        e.currentTarget.style.background = '#f8fafc';
-                                        e.currentTarget.style.color = '#0f172a';
-                                    }
-                                }}
-                                onMouseLeave={(e) => {
-                                    if (!isActive) {
-                                        e.currentTarget.style.background = 'transparent';
-                                        e.currentTarget.style.color = '#64748b';
-                                    }
-                                }}
-                            >
-                                <item.icon style={{ width: '20px' }} />
-                                {item.label}
-                            </button>
-                        );
-                    })}
-                </nav>
+                {/* Blue Navigation Area */}
+                <div style={{
+                    flex: 1,
+                    background: '#6262eeff', // Exact black-blue as requested
+                    display: 'flex',
+                    flexDirection: 'column',
+                    padding: '1.5rem 1rem'
+                }}>
+                    <nav style={{ flex: 1 }}>
+                        {navItems.map((item) => {
+                            const isActive = location.pathname === item.path;
+                            return (
+                                <button
+                                    key={item.label}
+                                    onClick={() => {
+                                        navigate(item.path);
+                                        setIsOpen(false);
+                                    }}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.75rem',
+                                        width: '100%',
+                                        padding: '0.875rem 1rem',
+                                        marginBottom: '0.625rem',
+                                        borderRadius: '12px',
+                                        border: 'none',
+                                        background: isActive ? '#dcfce7' : 'transparent', // Light Green active
+                                        color: isActive ? '#14532d' : '#f8fafc', // Dark green text if active, white if not
+                                        fontWeight: isActive ? 700 : 500,
+                                        cursor: 'pointer',
+                                        transition: 'all 0.3s ease',
+                                        textAlign: 'left'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        if (!isActive) {
+                                            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                                            e.currentTarget.style.transform = 'translateX(4px)';
+                                        }
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        if (!isActive) {
+                                            e.currentTarget.style.background = 'transparent';
+                                            e.currentTarget.style.transform = 'translateX(0)';
+                                        }
+                                    }}
+                                >
+                                    <item.icon style={{ 
+                                        width: '20px', 
+                                        color: isActive ? '#16a34a' : '#f8fafc' 
+                                    }} />
+                                    {item.label}
+                                </button>
+                            );
+                        })}
+                    </nav>
 
-                <div style={{ padding: '1.5rem', borderTop: '1px solid #f1f5f9' }}>
-                    <div style={{
-                        fontSize: '0.75rem',
-                        color: '#94a3b8',
-                        marginBottom: '1rem',
-                        paddingLeft: '0.5rem',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap'
+                    <div style={{ 
+                        marginTop: 'auto',
+                        paddingTop: '1.5rem', 
+                        borderTop: '1px solid rgba(255, 255, 255, 0.1)' 
                     }}>
-                        {adminEmail}
+                        <div style={{
+                            fontSize: '0.75rem',
+                            color: '#94a3b8',
+                            marginBottom: '1rem',
+                            paddingLeft: '0.5rem',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                        }}>
+                            {adminEmail}
+                        </div>
+                        <button
+                            onClick={handleLogout}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.75rem',
+                                width: '100%',
+                                padding: '0.75rem',
+                                borderRadius: '10px',
+                                border: 'none',
+                                background: 'rgba(239, 68, 68, 0.15)',
+                                color: '#fca5a5',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.background = 'rgba(239, 68, 68, 0.25)';
+                                e.currentTarget.style.color = '#ef4444';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)';
+                                e.currentTarget.style.color = '#fca5a5';
+                            }}
+                        >
+                            <LogOut style={{ width: '18px' }} /> Logout
+                        </button>
                     </div>
-                    <button
-                        onClick={handleLogout}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.75rem',
-                            width: '100%',
-                            padding: '0.75rem',
-                            borderRadius: '10px',
-                            border: 'none',
-                            background: '#fef2f2',
-                            color: '#ef4444',
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                            transition: 'all 0.2s'
-                        }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = '#fee2e2'}
-                        onMouseLeave={(e) => e.currentTarget.style.background = '#fef2f2'}
-                    >
-                        <LogOut style={{ width: '18px' }} /> Logout
-                    </button>
                 </div>
             </aside>
 
