@@ -32,6 +32,16 @@ const InvoicePreview = () => {
     const [toastType, setToastType] = useState('success');
     const [pdfUrl, setPdfUrl] = useState(null);
 
+    // Email Compose Modal State
+    const [isComposeModalOpen, setIsComposeModalOpen] = useState(false);
+    const [emailData, setEmailData] = useState({
+        to: '',
+        cc: '',
+        bcc: '',
+        subject: '',
+        content: ''
+    });
+
     useEffect(() => {
         const fetchInvoice = async () => {
             try {
@@ -568,32 +578,33 @@ const InvoicePreview = () => {
 
     const handleSendEmail = async () => {
         if (!invoice) return;
+        
+        // Validation
+        if (!emailData.to || !emailData.subject || !emailData.content) {
+            showToast("To, Subject and Content are required.", "error");
+            return;
+        }
+
         setSendingEmail(true);
-        // Force a tiny pause so React can visually render the loading spinner on the button!
-        await new Promise(resolve => setTimeout(resolve, 0));
         try {
             const doc = generatedPdfRef.current || await generatePDFDocument();
             if (!doc) throw new Error("Could not generate PDF");
 
             const pdfBase64 = doc.output('datauristring');
             
-            let targetEmail = client?.email;
-            if (!targetEmail) {
-                targetEmail = prompt("Client email not found. Please enter an email address to proceed:", "");
-                if (!targetEmail) {
-                    setSendingEmail(false);
-                    return;
-                }
-            }
-
             await axios.post(`${API_BASE_URL}/invoice/send-email`, {
                 invoiceNo: invoice.invoiceNo,
                 clientName: invoice.clientName,
-                clientEmail: targetEmail,
+                toEmails: emailData.to,
+                ccEmails: emailData.cc,
+                bccEmails: emailData.bcc,
+                subject: emailData.subject,
+                content: emailData.content,
                 pdfBase64: pdfBase64
             });
 
             showToast("Email sent successfully!");
+            setIsComposeModalOpen(false);
         } catch (err) {
             console.error("Email send failed", err);
             const errMsg = err.response?.data?.error || err.message || "Failed to send email";
@@ -601,6 +612,19 @@ const InvoicePreview = () => {
         } finally {
             setSendingEmail(false);
         }
+    };
+
+    const handleOpenComposeModal = () => {
+        if (!invoice) return;
+        
+        setEmailData({
+            to: client?.email || '',
+            cc: '',
+            bcc: '',
+            subject: `Invoice #${invoice.invoiceNo} from VTAB Square`,
+            content: `Hello ${invoice.clientName},\n\nPlease find attached your invoice (#${invoice.invoiceNo}).\n\nRegards,\nVTAB Square Private Limited`
+        });
+        setIsComposeModalOpen(true);
     };
 
     const isAppReady = !loading && invoice && !generatingPdf && pdfUrl;
@@ -677,19 +701,19 @@ const InvoicePreview = () => {
                             Download PDF
                         </button>
                         <button 
-                            onClick={handleSendEmail}
-                            disabled={!isAppReady || sendingEmail}
+                            onClick={handleOpenComposeModal}
+                            disabled={!isAppReady}
                             style={{ 
                                 display: 'flex', alignItems: 'center', gap: '0.5rem', 
                                 background: '#4f46e5', color: 'white', padding: '0.625rem 1.25rem', 
                                 borderRadius: '12px', fontWeight: 700, border: 'none', 
-                                cursor: (!isAppReady || sendingEmail) ? 'not-allowed' : 'pointer',
-                                opacity: (!isAppReady || sendingEmail) ? 0.5 : 1,
+                                cursor: !isAppReady ? 'not-allowed' : 'pointer',
+                                opacity: !isAppReady ? 0.5 : 1,
                                 transition: 'all 0.2s'
                             }}
                         >
-                            {sendingEmail ? <Loader2 size={18} className="animate-spin" /> : <Mail size={18} />}
-                            {sendingEmail ? 'Sending...' : 'Send to Email'}
+                            <Mail size={18} />
+                            Compose Email
                         </button>
                     </div>
                 </div>
@@ -738,7 +762,7 @@ const InvoicePreview = () => {
             {/* Toast Notification */}
             {toastMessage && (
                 <div style={{
-                    position: 'fixed', bottom: '1.5rem', right: '1.5rem', zIndex: 50,
+                    position: 'fixed', bottom: '1.5rem', right: '1.5rem', zIndex: 60,
                     display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '1rem 1.5rem',
                     borderRadius: '12px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
                     background: toastType === 'success' ? '#f0fdf4' : '#fef2f2',
@@ -748,6 +772,129 @@ const InvoicePreview = () => {
                 }}>
                     {toastType === 'success' ? <Check size={20} color="#16a34a" /> : <X size={20} color="#dc2626" />}
                     <p style={{ margin: 0 }}>{toastMessage}</p>
+                </div>
+            )}
+
+            {/* Email Compose Modal */}
+            {isComposeModalOpen && (
+                <div style={{
+                    position: 'fixed', inset: 0, zIndex: 100,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(4px)'
+                }}>
+                    <div style={{
+                        background: 'white', width: '100%', maxWidth: '600px',
+                        borderRadius: '20px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                        overflow: 'hidden', border: '1px solid #e2e8f0'
+                    }}>
+                        {/* Modal Header */}
+                        <div style={{ 
+                            padding: '1.5rem', borderBottom: '1px solid #f1f5f9',
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            background: '#f8fafc'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                <div style={{ background: '#4f46e5', color: 'white', padding: '0.5rem', borderRadius: '10px' }}>
+                                    <Mail size={20} />
+                                </div>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 700, color: '#0f172a' }}>Compose Email</h3>
+                                    <p style={{ margin: 0, fontSize: '0.75rem', color: '#64748b' }}>Send invoice to multiple recipients</p>
+                                </div>
+                            </div>
+                            <button 
+                                onClick={() => setIsComposeModalOpen(false)}
+                                style={{ background: 'white', border: '1px solid #e2e8f0', padding: '0.4rem', borderRadius: '8px', cursor: 'pointer', color: '#64748b' }}
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        {/* Modal Body */}
+                        <div style={{ padding: '1.5rem', display: 'grid', gap: '1rem' }}>
+                            <div style={{ display: 'grid', gap: '1.5rem', gridTemplateColumns: '1fr 1fr' }}>
+                                <div style={{ gridColumn: 'span 2' }}>
+                                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#334155', marginBottom: '0.4rem' }}>To (comma separated) *</label>
+                                    <input 
+                                        type="text"
+                                        placeholder="email1@example.com, email2@example.com"
+                                        value={emailData.to}
+                                        onChange={(e) => setEmailData({...emailData, to: e.target.value})}
+                                        required
+                                        style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '10px', border: '1px solid #e2e8f0', fontSize: '0.875rem', boxSizing: 'border-box' }}
+                                    />
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#334155', marginBottom: '0.4rem' }}>CC</label>
+                                    <input 
+                                        type="text"
+                                        placeholder="cc@example.com"
+                                        value={emailData.cc}
+                                        onChange={(e) => setEmailData({...emailData, cc: e.target.value})}
+                                        required
+                                        style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '10px', border: '1px solid #e2e8f0', fontSize: '0.875rem', boxSizing: 'border-box' }}
+                                    />
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#334155', marginBottom: '0.4rem' }}>BCC</label>
+                                    <input 
+                                        type="text"
+                                        placeholder="bcc@example.com"
+                                        value={emailData.bcc}
+                                        onChange={(e) => setEmailData({...emailData, bcc: e.target.value})}
+                                        required
+                                        style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '10px', border: '1px solid #e2e8f0', fontSize: '0.875rem', boxSizing: 'border-box' }}
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#334155', marginBottom: '0.4rem' }}>Subject *</label>
+                                <input 
+                                    type="text"
+                                    value={emailData.subject}
+                                    onChange={(e) => setEmailData({...emailData, subject: e.target.value})}
+                                    required
+                                    style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '10px', border: '1px solid #e2e8f0', fontSize: '0.875rem', boxSizing: 'border-box' }}
+                                />
+                            </div>
+
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#334155', marginBottom: '0.4rem' }}>Message Content *</label>
+                                <textarea 
+                                    rows={5}
+                                    value={emailData.content}
+                                    onChange={(e) => setEmailData({...emailData, content: e.target.value})}
+                                    required
+                                    style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '10px', border: '1px solid #e2e8f0', fontSize: '0.875rem', boxSizing: 'border-box', resize: 'none' }}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div style={{ padding: '1.25rem 1.5rem', borderTop: '1px solid #f1f5f9', background: '#f8fafc', display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                            <button 
+                                onClick={() => setIsComposeModalOpen(false)}
+                                style={{ padding: '0.625rem 1.25rem', borderRadius: '10px', border: '1px solid #e2e8f0', background: 'white', color: '#64748b', fontWeight: 600, cursor: 'pointer' }}
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={handleSendEmail}
+                                disabled={sendingEmail}
+                                style={{ 
+                                    padding: '0.625rem 1.5rem', borderRadius: '10px', border: 'none', 
+                                    background: '#4f46e5', color: 'white', fontWeight: 700, 
+                                    cursor: sendingEmail ? 'not-allowed' : 'pointer',
+                                    display: 'flex', alignItems: 'center', gap: '0.5rem',
+                                    opacity: sendingEmail ? 0.7 : 1
+                                }}
+                            >
+                                {sendingEmail ? <Loader2 size={18} className="animate-spin" /> : <Mail size={18} />}
+                                {sendingEmail ? 'Sending...' : 'Send Mail'}
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

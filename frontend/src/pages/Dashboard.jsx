@@ -11,6 +11,7 @@ const Dashboard = () => {
     const [clients, setClients] = useState([]);
     const [profiles, setProfiles] = useState([]);
     const [loading, setLoading] = useState(true);
+    // Removed exporting state as it's now instant
 
     // Filters State
     const [dateFilter, setDateFilter] = useState({ from: '', to: '' });
@@ -71,6 +72,62 @@ const Dashboard = () => {
             currency: 'INR',
             minimumFractionDigits: 2
         }).format(val);
+    };
+
+    const handleExport = () => {
+        if (filteredInvoices.length === 0) {
+            alert("No data to export!");
+            return;
+        }
+
+        try {
+            // Define CSV headers
+            const headers = [
+                "invoice no", 
+                "invoice create date", 
+                "profile name", 
+                "client name", 
+                "amount", 
+                "sgst", 
+                "cgst", 
+                "total"
+            ];
+
+            // Map data to rows
+            const rows = filteredInvoices.map(inv => [
+                inv.invoiceNo || "",
+                inv.invoiceDate || "",
+                inv.profileName || "",
+                inv.clientName || "",
+                inv.amount ? String(inv.amount).replace(/[^\d.-]/g, '') : "0",
+                inv.sgst ? String(inv.sgst).replace(/[^\d.-]/g, '') : "0",
+                inv.cgst ? String(inv.cgst).replace(/[^\d.-]/g, '') : "0",
+                inv.total ? String(inv.total).replace(/[^\d.-]/g, '') : "0"
+            ]);
+
+            // Combine headers and rows into CSV content
+            const csvContent = [
+                headers.join(","),
+                ...rows.map(row => row.map(val => `"${val}"`).join(","))
+            ].join("\n");
+
+            // Create a blob and trigger download
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            const timestamp = new Date().toISOString().split('T')[0];
+            
+            link.setAttribute("href", url);
+            link.setAttribute("download", `Invoices_Export_${timestamp}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+        } catch (err) {
+            console.error("Export error:", err);
+            alert("Failed to export invoices. Please try again.");
+        }
     };
 
     const stats = [
@@ -185,7 +242,7 @@ const Dashboard = () => {
                             { label: 'Total Invoices', value: filteredInvoices.length, icon: FileText, color: '#2563eb', bg: '#eff6ff' },
                             { label: 'Total Clients', value: clients.length, icon: Users, color: '#16a34a', bg: '#f0fdf4' },
                             { label: 'Total Profiles', value: profiles.length, icon: UserCircle, color: '#9333ea', bg: '#faf5ff' },
-                            { label: 'Invoice Approved', value: filteredInvoices.length, icon: Clock, color: '#ea580c', bg: '#fff7ed' },
+                            // { label: 'Invoice Approved', value: filteredInvoices.length, icon: Clock, color: '#ea580c', bg: '#fff7ed' },
                         ].map((stat) => (
                             <div key={stat.label} style={{
                                 background: 'white', borderRadius: '1rem',
@@ -244,6 +301,22 @@ const Dashboard = () => {
                                 <h3 style={{ fontWeight: 700, color: '#0f172a', margin: 0, fontSize: '1.125rem' }}>Filtered Invoices</h3>
                                 <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.813rem', color: '#64748b' }}>Showing {filteredInvoices.length} records</p>
                             </div>
+                            <button
+                                onClick={handleExport}
+                                disabled={loading}
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: '0.5rem',
+                                    padding: '0.625rem 1.25rem', borderRadius: '0.5rem', border: 'none',
+                                    background: '#16a34a', color: 'white', fontSize: '0.875rem', fontWeight: 600,
+                                    cursor: loading ? 'not-allowed' : 'pointer',
+                                    opacity: loading ? 0.7 : 1,
+                                    transition: 'all 0.2s',
+                                    boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                                }}
+                            >
+                                <Download size={18} />
+                                Export CSV
+                            </button>
                         </div>
 
                         <div style={{ overflowX: 'auto' }}>

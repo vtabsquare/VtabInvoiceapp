@@ -1,4 +1,4 @@
-const { sheets, SPREADSHEET_ID } = require("../config/googleSheet");
+const { sheets, drive, SPREADSHEET_ID } = require("../config/googleSheet");
 const otpGenerator = require("otp-generator");
 const otpStore = require("../utils/otpStore");
 // Resend removed, migrated to Brevo API explicitly requested by user
@@ -96,14 +96,26 @@ exports.sendOTP = async (req, res) => {
 
 // SEND INVOICE EMAIL
 exports.sendInvoiceEmail = async (req, res) => {
-    const { invoiceNo, clientEmail, pdfBase64, clientName } = req.body;
+    const { invoiceNo, clientEmail, pdfBase64, clientName, toEmails, ccEmails, bccEmails, subject, content } = req.body;
 
-    if (!invoiceNo || !clientEmail || !pdfBase64 || !clientName) {
+    // We either need clientEmail (old way) or toEmails (new way)
+    if (!invoiceNo || (!clientEmail && !toEmails) || !pdfBase64 || !clientName) {
         return res.status(400).json({ message: "Missing required fields for email." });
     }
 
     try {
-        console.log(`\n📧 Sending invoice #${invoiceNo} to email: ${clientEmail} ...`);
+        const parseEmails = (emails) => {
+            if (!emails) return [];
+            if (Array.isArray(emails)) return emails.map(e => ({ email: e.trim() }));
+            return emails.split(",").map(e => ({ email: e.trim() })).filter(e => e.email !== "");
+        };
+
+        const to = toEmails ? parseEmails(toEmails) : [{ email: clientEmail }];
+        const cc = parseEmails(ccEmails);
+        const bcc = parseEmails(bccEmails);
+
+        console.log(`\n📧 Sending invoice #${invoiceNo} to ${to.length} recipients...`);
+        
         // Strip data: URI prefix to get raw base64 string
         let base64Data = pdfBase64;
         if (pdfBase64.includes(",")) {
@@ -118,12 +130,14 @@ exports.sendInvoiceEmail = async (req, res) => {
             return res.status(400).json({ error: "PDF generation failed on client. Please try closing and reopening the preview." });
         }
 
-        // Use Brevo REST API explicitly requested by user
+        // Use Brevo REST API
         const brevoPayload = {
             sender: { name: "VTAB Square", email: process.env.EMAIL_USER },
-            to: [{ email: clientEmail }],
-            subject: `Invoice #${invoiceNo} from VTAB Square - ${new Date().toLocaleTimeString()}`,
-            htmlContent: `
+            to: to,
+            cc: cc.length > 0 ? cc : undefined,
+            bcc: bcc.length > 0 ? bcc : undefined,
+            subject: subject || `Invoice #${invoiceNo} from VTAB Square - ${new Date().toLocaleTimeString()}`,
+            htmlContent: content || `
                 <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
                     <p>Hello ${clientName},</p>
                     <p>Please find attached your invoice (<strong>#${invoiceNo}</strong>).</p>
@@ -135,7 +149,7 @@ exports.sendInvoiceEmail = async (req, res) => {
             attachment: [
                 {
                     name: `Invoice_${invoiceNo}.pdf`,
-                    content: base64Data // Brevo natively accepts raw base64 strings!
+                    content: base64Data
                 }
             ]
         };
@@ -178,7 +192,7 @@ exports.sendInvoiceEmail = async (req, res) => {
             req.end();
         });
 
-        console.log(`✅ Successfully sent email via Brevo to ${clientEmail}. Message ID: ${responseData?.messageId}`);
+        console.log(`✅ Successfully sent email via Brevo. Message ID: ${responseData?.messageId}`);
         res.json({ message: "Email sent successfully!" });
     } catch (err) {
         console.error("❌ Send Email Error:", err);

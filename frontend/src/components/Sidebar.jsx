@@ -41,15 +41,14 @@ const Sidebar = () => {
                 zIndex: 40
             }} className="mobile-header">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <div style={{ width: '48px', height: '48px', background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ width: '45px', height: '45px', background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', borderRadius: '1px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <img
                             src="/vtab.jpeg"
                             alt="VTAB Logo"
                             style={{
-                                width: '50px',
-                                height: '50px',
+                                width: '45px',
+                                height: '45px',
                                 objectFit: 'cover',
-                                borderRadius: '3px'
                             }}
                         />
                     </div>
@@ -98,7 +97,6 @@ const Sidebar = () => {
                         width: '180px',
                         height: '180px',
                         background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
-                        borderRadius: '14px',
                         padding: '2px', // subtle border effect
                         display: 'flex',
                         alignItems: 'center',
@@ -112,7 +110,6 @@ const Sidebar = () => {
                                 width: '100%',
                                 height: '100%',
                                 objectFit: 'cover',
-                                borderRadius: '12px'
                             }}
                         />
                     </div>

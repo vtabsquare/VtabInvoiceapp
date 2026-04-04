@@ -822,7 +822,7 @@ const AddInvoice = () => {
     // Modified submit handler to navigate when successful
     useEffect(() => {
         if (showSuccessModal && lastSerial) {
-             navigate('/invoice/preview/' + lastSerial);
+            navigate('/invoice/preview/' + lastSerial);
         }
     }, [showSuccessModal, lastSerial, navigate]);
 

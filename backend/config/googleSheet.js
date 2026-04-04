@@ -24,7 +24,10 @@ if (process.env.GOOGLE_CREDENTIALS || (process.env.GOOGLE_CLIENT_EMAIL && proces
         // Fix for Render newline issue in private key
         private_key: credentials.private_key.replace(/\\n/g, "\n"),
       },
-      scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+      scopes: [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive.file"
+      ],
     });
 
     console.log("✅ Google Auth initialized using environment variables.");
@@ -39,7 +42,10 @@ else {
 
   auth = new google.auth.GoogleAuth({
     keyFile,
-    scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+    scopes: [
+      "https://www.googleapis.com/auth/spreadsheets",
+      "https://www.googleapis.com/auth/drive.file"
+    ],
   });
 
   console.log("✅ Google Auth initialized using local key file.");
@@ -50,7 +56,12 @@ const sheets = google.sheets({
   auth,
 });
 
+const drive = google.drive({
+  version: "v3",
+  auth,
+});
+
 const SPREADSHEET_ID =
   process.env.SPREADSHEET_ID || "1IKk4iyAxKfggaV8yVDHBvKAhjGfHSHTJYXCL1PsYyG8";
 
-module.exports = { sheets, SPREADSHEET_ID };
+module.exports = { sheets, drive, SPREADSHEET_ID };
