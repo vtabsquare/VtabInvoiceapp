@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import jsPDF from 'jspdf';
@@ -24,11 +24,13 @@ const InvoicePreview = () => {
     const [client, setClient] = useState({});
     const [lineItems, setLineItems] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [generatingPdf, setGeneratingPdf] = useState(false);
     const [sendingEmail, setSendingEmail] = useState(false);
+    const generatedPdfRef = useRef(null);
     const [toastMessage, setToastMessage] = useState(null);
     const [toastType, setToastType] = useState('success');
     const [pdfUrl, setPdfUrl] = useState(null);
-    const [generatingPdf, setGeneratingPdf] = useState(true);
 
     useEffect(() => {
         const fetchInvoice = async () => {
@@ -528,6 +530,7 @@ const InvoicePreview = () => {
                     setGeneratingPdf(true);
                     const doc = await generatePDFDocument();
                     if (doc) {
+                        generatedPdfRef.current = doc;
                         const blob = doc.output('blob');
                         objectUrl = URL.createObjectURL(blob);
                         setPdfUrl(objectUrl);
@@ -551,7 +554,7 @@ const InvoicePreview = () => {
     const handleDownload = async () => {
         if (!invoice) return;
         try {
-            const doc = await generatePDFDocument();
+            const doc = generatedPdfRef.current || await generatePDFDocument();
             if (doc) {
                 const sanitize = (name) => name ? name.toUpperCase().replace(/\s+/g, '_') : 'UNKNOWN';
                 const fileName = `INVOICE_${invoice.invoiceNo}_${sanitize(invoice.profileName)}_${sanitize(invoice.clientName)}.pdf`;
@@ -566,8 +569,10 @@ const InvoicePreview = () => {
     const handleSendEmail = async () => {
         if (!invoice) return;
         setSendingEmail(true);
+        // Force a tiny pause so React can visually render the loading spinner on the button!
+        await new Promise(resolve => setTimeout(resolve, 0));
         try {
-            const doc = await generatePDFDocument();
+            const doc = generatedPdfRef.current || await generatePDFDocument();
             if (!doc) throw new Error("Could not generate PDF");
 
             const pdfBase64 = doc.output('datauristring');

@@ -1,10 +1,7 @@
 const { sheets, SPREADSHEET_ID } = require("../config/googleSheet");
 const otpGenerator = require("otp-generator");
-//const nodemailer = require("nodemailer");
-const { Resend } = require("resend");
 const otpStore = require("../utils/otpStore");
-
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Resend removed, migrated to Brevo API explicitly requested by user
 
 //login
 
@@ -114,14 +111,19 @@ exports.sendInvoiceEmail = async (req, res) => {
         }
         
         const pdfBuffer = Buffer.from(base64Data, 'base64');
+        console.log(`📊 PDF Buffer Size: ${pdfBuffer.length} bytes`);
 
-        // Fire and forget: don't await the Resend API call so the frontend returns instantly!
-        resend.emails.send({
-            from: "VTAB Invoice <onboarding@resend.dev>",
-            to: clientEmail,
-            cc: "balamuraleee@gmail.com",
-            subject: `Invoice from VTAB Square Private Limited`,
-            html: `
+        if (pdfBuffer.length < 1000) {
+            console.error("❌ ERROR: Generated PDF is corrupt or empty (less than 1KB).");
+            return res.status(400).json({ error: "PDF generation failed on client. Please try closing and reopening the preview." });
+        }
+
+        // Use Brevo REST API explicitly requested by user
+        const brevoPayload = {
+            sender: { name: "VTAB Square", email: process.env.EMAIL_USER },
+            to: [{ email: clientEmail }],
+            subject: `Invoice #${invoiceNo} from VTAB Square - ${new Date().toLocaleTimeString()}`,
+            htmlContent: `
                 <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
                     <p>Hello ${clientName},</p>
                     <p>Please find attached your invoice (<strong>#${invoiceNo}</strong>).</p>
@@ -130,22 +132,57 @@ exports.sendInvoiceEmail = async (req, res) => {
                     <p>Regards,<br/><strong>VTAB Square Private Limited</strong></p>
                 </div>
             `,
-            attachments: [
+            attachment: [
                 {
-                    filename: `Invoice_${invoiceNo}.pdf`,
-                    content: pdfBuffer,
-                },
-            ],
-        }).then(() => {
-            console.log(`✅ Successfully queued/sent email to ${clientEmail}`);
-        }).catch((err) => {
-            console.error(`❌ Background Email Error for ${clientEmail}:`, err.message);
+                    name: `Invoice_${invoiceNo}.pdf`,
+                    content: base64Data // Brevo natively accepts raw base64 strings!
+                }
+            ]
+        };
+
+        // Use native HTTPS to avoid Node.js fetch memory bloat/socket reset bugs
+        const https = require('https');
+        
+        const payloadString = JSON.stringify(brevoPayload);
+        const options = {
+            hostname: 'api.brevo.com',
+            path: '/v3/smtp/email',
+            method: 'POST',
+            headers: {
+                "api-key": process.env.BREVO_API_KEY,
+                "Content-Type": "application/json",
+                "accept": "application/json",
+                "Content-Length": Buffer.byteLength(payloadString)
+            }
+        };
+
+        const responseData = await new Promise((resolve, reject) => {
+            const req = https.request(options, (res) => {
+                let data = '';
+                res.on('data', chunk => data += chunk);
+                res.on('end', () => {
+                    try {
+                        const parsed = JSON.parse(data);
+                        if (res.statusCode >= 200 && res.statusCode < 300) {
+                            resolve(parsed);
+                        } else {
+                            reject(new Error(`Brevo Error: ${parsed.message || data}`));
+                        }
+                    } catch (e) {
+                         reject(new Error(`Brevo Error ${res.statusCode}: ${data}`));
+                    }
+                });
+            });
+            req.on('error', reject);
+            req.write(payloadString);
+            req.end();
         });
 
-        res.json({ message: "Email queued successfully for delivery" });
-    } catch (error) {
-        console.error("❌ Error parsing email payload:", error);
-        res.status(500).json({ error: error.message || "Failed to queue email" });
+        console.log(`✅ Successfully sent email via Brevo to ${clientEmail}. Message ID: ${responseData?.messageId}`);
+        res.json({ message: "Email sent successfully!" });
+    } catch (err) {
+        console.error("❌ Send Email Error:", err);
+        res.status(500).json({ error: err.message || "Failed to send email" });
     }
 };
 

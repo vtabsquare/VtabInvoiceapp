@@ -13,9 +13,9 @@ const Sidebar = () => {
 
     const navItems = [
         { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
-        { label: 'Client Application', icon: UsersIcon, path: '/clients' },
-        { label: 'Profile Application', icon: Building2, path: '/profiles' },
-        { label: 'Invoice Application', icon: FileText, path: '/invoices' },
+        { label: 'Client', icon: UsersIcon, path: '/clients' },
+        { label: 'Profile', icon: Building2, path: '/profiles' },
+        { label: 'Invoice', icon: FileText, path: '/invoices' },
     ];
 
     const handleLogout = () => {
