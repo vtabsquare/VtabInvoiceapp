@@ -377,7 +377,7 @@ const EditInvoice = () => {
             { icon: iconUser, lines: doc.splitTextToSize(profile.companyName || '', innerW) },
             { icon: iconLocation, lines: byAddrLines },
             { icon: iconGstin, lines: [`GSTIN: ${profile.gstNo || 'N/A'}`] },
-            { icon: iconPan, lines: [`PAN: ${profile.taxNo || 'N/A'}`] },
+            { icon: iconPan, lines: [`TAN: ${profile.taxNo || 'N/A'}`] },
             { icon: iconMail, lines: [`${profile.email || ''}`] },
             { icon: iconPhone, lines: [`${profile.contactNo || ''}`] },
         ];
@@ -385,7 +385,7 @@ const EditInvoice = () => {
             { icon: iconCompany, lines: doc.splitTextToSize(client.name || '', innerW) },
             { icon: iconLocation, lines: toAddrLines },
             { icon: iconGstin, lines: [`GSTIN: ${client.gstNo || 'N/A'}`] },
-            { icon: iconPan, lines: [`PAN: ${client.panNo || 'N/A'}`] },
+            { icon: iconPan, lines: [`TAN: ${client.taxNo || 'N/A'}`] },
             { icon: iconMail, lines: [`${client.email || ''}`] },
             { icon: iconPhone, lines: [`${client.contact || ''}`] },
         ];
@@ -795,8 +795,9 @@ const EditInvoice = () => {
                 console.error("Failed to process logo image", e);
             }
 
-            await generatePDF(invoiceData, lineItems, totals, logoBase64);
+            // Navigate to preview page securely
             setShowSuccessModal(true);
+            navigate('/invoice/preview/' + serialNo);
 
         } catch (err) {
             console.error("Update Invoice Error:", err);
@@ -1126,7 +1127,7 @@ const EditInvoice = () => {
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', paddingBottom: '4rem' }} className="actions-footer">
                         <button type="button" onClick={() => navigate('/invoices')} style={{ padding: '0.75rem 2rem', borderRadius: '12px', border: '1px solid #e2e8f0', background: 'white', fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
                         <button type="submit" disabled={loading} style={{ padding: '0.75rem 3rem', borderRadius: '12px', border: 'none', background: '#2563eb', color: 'white', fontWeight: 700, cursor: 'pointer' }}>
-                            {loading ? 'Processing...' : 'Update & Download'}
+                            {loading ? 'Processing...' : 'Save & Preview'}
                         </button>
                     </div>
                 </form>

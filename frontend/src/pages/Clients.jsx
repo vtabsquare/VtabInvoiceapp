@@ -223,7 +223,7 @@ const Clients = () => {
             <Sidebar />
             <main style={{ flex: 1, overflow: 'auto' }} className="animate-fade-in-up main-content">
                 <header style={{ background: 'white', padding: '1.25rem 2rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} className="clients-header">
-                    <h2 style={{ fontWeight: 700, fontSize: '1.25rem', color: '#0f172a', margin: 0 }}>Client Application</h2>
+                    <h2 style={{ fontWeight: 700, fontSize: '1.25rem', color: '#0f172a', margin: 0 }}>Client</h2>
                     <button onClick={openAddModal} style={{
                         background: '#2563eb', color: 'white', border: 'none', padding: '0.625rem 1.25rem', borderRadius: '0.5rem',
                         fontWeight: 600, fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer'

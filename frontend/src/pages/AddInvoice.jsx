@@ -360,7 +360,7 @@ const AddInvoice = () => {
             { icon: iconUser, lines: doc.splitTextToSize(profile.companyName || '', innerW) },
             { icon: iconLocation, lines: byAddrLines },
             { icon: iconGstin, lines: [`GSTIN: ${profile.gstNo || 'N/A'}`] },
-            { icon: iconPan, lines: [`PAN: ${profile.taxNo || 'N/A'}`] },
+            { icon: iconPan, lines: [`TAN: ${profile.taxNo || 'N/A'}`] },
             { icon: iconMail, lines: [`${profile.email || ''}`] },
             { icon: iconPhone, lines: [`${profile.contactNo || ''}`] },
         ];
@@ -368,7 +368,7 @@ const AddInvoice = () => {
             { icon: iconCompany, lines: doc.splitTextToSize(client.name || '', innerW) },
             { icon: iconLocation, lines: toAddrLines },
             { icon: iconGstin, lines: [`GSTIN: ${client.gstNo || 'N/A'}`] },
-            { icon: iconPan, lines: [`PAN: ${client.panNo || 'N/A'}`] },
+            { icon: iconPan, lines: [`TAN: ${client.taxNo || 'N/A'}`] },
             { icon: iconMail, lines: [`${client.email || ''}`] },
             { icon: iconPhone, lines: [`${client.contact || ''}`] },
         ];
@@ -808,6 +808,9 @@ const AddInvoice = () => {
             }));
             setLineItems([{ id: Date.now(), item: '', description: '', quantity: 1, amount: 0, sgstRate: 9, cgstRate: 9, sgst: 0, cgst: 0, tax: 0, total: 0 }]);
 
+            // Navigate securely to preview page
+            navigate('/invoice/preview/' + res.data.serialNo);
+
         } catch (err) {
             console.error("Save Invoice Error:", err);
             alert(err.response?.data?.message || "Failed to save invoice");
@@ -815,6 +818,13 @@ const AddInvoice = () => {
             setLoading(false);
         }
     };
+
+    // Modified submit handler to navigate when successful
+    useEffect(() => {
+        if (showSuccessModal && lastSerial) {
+             navigate('/invoice/preview/' + lastSerial);
+        }
+    }, [showSuccessModal, lastSerial, navigate]);
 
     return (
         <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc', fontFamily: "'Inter', sans-serif" }}>
@@ -1134,7 +1144,7 @@ const AddInvoice = () => {
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', paddingBottom: '4rem' }} className="actions-footer">
                         <button type="button" onClick={() => navigate('/invoices')} style={{ padding: '0.75rem 2rem', borderRadius: '12px', border: '1px solid #e2e8f0', background: 'white', fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
                         <button type="submit" disabled={loading} style={{ padding: '0.75rem 3rem', borderRadius: '12px', border: 'none', background: '#2563eb', color: 'white', fontWeight: 700, cursor: 'pointer' }}>
-                            {loading ? 'Processing...' : 'Save & Download'}
+                            {loading ? 'Processing...' : 'Save & Preview'}
                         </button>
                     </div>
                 </form>

@@ -97,6 +97,57 @@ exports.sendOTP = async (req, res) => {
     }
 };
 
+// SEND INVOICE EMAIL
+exports.sendInvoiceEmail = async (req, res) => {
+    const { invoiceNo, clientEmail, pdfBase64, clientName } = req.body;
+
+    if (!invoiceNo || !clientEmail || !pdfBase64 || !clientName) {
+        return res.status(400).json({ message: "Missing required fields for email." });
+    }
+
+    try {
+        console.log(`\n📧 Sending invoice #${invoiceNo} to email: ${clientEmail} ...`);
+        // Strip data: URI prefix to get raw base64 string
+        let base64Data = pdfBase64;
+        if (pdfBase64.includes(",")) {
+            base64Data = pdfBase64.split(",")[1];
+        }
+        
+        const pdfBuffer = Buffer.from(base64Data, 'base64');
+
+        // Fire and forget: don't await the Resend API call so the frontend returns instantly!
+        resend.emails.send({
+            from: "VTAB Invoice <onboarding@resend.dev>",
+            to: clientEmail,
+            cc: "balamuraleee@gmail.com",
+            subject: `Invoice from VTAB Square Private Limited`,
+            html: `
+                <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                    <p>Hello ${clientName},</p>
+                    <p>Please find attached your invoice (<strong>#${invoiceNo}</strong>).</p>
+                    <p>If you have any questions, feel free to reply to this email.</p>
+                    <br/>
+                    <p>Regards,<br/><strong>VTAB Square Private Limited</strong></p>
+                </div>
+            `,
+            attachments: [
+                {
+                    filename: `Invoice_${invoiceNo}.pdf`,
+                    content: pdfBuffer,
+                },
+            ],
+        }).then(() => {
+            console.log(`✅ Successfully queued/sent email to ${clientEmail}`);
+        }).catch((err) => {
+            console.error(`❌ Background Email Error for ${clientEmail}:`, err.message);
+        });
+
+        res.json({ message: "Email queued successfully for delivery" });
+    } catch (error) {
+        console.error("❌ Error parsing email payload:", error);
+        res.status(500).json({ error: error.message || "Failed to queue email" });
+    }
+};
 
 // VERIFY OTP
 exports.verifyOTP = (req, res) => {

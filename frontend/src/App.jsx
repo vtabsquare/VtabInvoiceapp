@@ -7,6 +7,7 @@ import Profiles from './pages/Profiles';
 import Invoices from './pages/Invoices';
 import AddInvoice from './pages/AddInvoice';
 import EditInvoice from './pages/EditInvoice';
+import InvoicePreview from './pages/InvoicePreview';
 
 function App() {
   return (
@@ -19,6 +20,7 @@ function App() {
         <Route path="/invoices" element={<Invoices />} />
         <Route path="/add-invoice" element={<AddInvoice />} />
         <Route path="/edit-invoice/:serialNo" element={<EditInvoice />} />
+        <Route path="/invoice/preview/:serialNo" element={<InvoicePreview />} />
         <Route path="/" element={<Navigate to="/login" />} />
       </Routes>
     </Router>
