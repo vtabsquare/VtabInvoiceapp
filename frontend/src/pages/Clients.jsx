@@ -86,7 +86,7 @@ const Clients = () => {
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        
+
         // Alphabets only for name
         if (name === 'name' && value !== '' && !/^[a-zA-Z\s]*$/.test(value)) return;
 
@@ -98,7 +98,7 @@ const Clients = () => {
         if (name === 'pincode' && value.length > 6) return;
         if (name === 'taxNo' && value.length > 16) return;
         if (name === 'gstNo' && value.length > 16) return;
-        
+
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 

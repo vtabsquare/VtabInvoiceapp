@@ -830,21 +830,24 @@ exports.addInvoice = async (req, res) => {
         invoiceNo, invoiceDate, dueDate, profileName, clientName,
         lineItems, signature,
         accountHolderName, accountNo, confirmAccountNo,
-        branchLocation, ifscCode, accountType
+        branchLocation, ifscCode, accountType, bankName
     } = req.body;
 
-    if (!invoiceNo || !invoiceDate || !profileName || !clientName || !lineItems || lineItems.length === 0 || !dueDate || !accountHolderName || !accountNo || !branchLocation || !ifscCode || !accountType) {
-        return res.status(400).json({ message: "Missing required invoice fields (including Bank Details and Due Date)" });
+    if (!invoiceNo || !invoiceDate || !profileName || !clientName || !lineItems || lineItems.length === 0 || !dueDate || !accountHolderName || !accountNo || !branchLocation || !ifscCode || !accountType || !bankName) {
+        return res.status(400).json({ message: "Missing required invoice fields (including Bank Details, Bank Account Name, and Due Date)" });
     }
 
-    const today = new Date().toISOString().split('T')[0];
-    if (dueDate < today) {
-        return res.status(400).json({ message: "Due Date must be a current or future date" });
+    // Loosened dueDate restriction to allow past dates as per request
+    if (dueDate < invoiceDate) {
+        return res.status(400).json({ message: "Due Date cannot be earlier than Invoice Date" });
     }
 
     const alphaRegex = /^[a-zA-Z\s]*$/;
     if (!alphaRegex.test(accountHolderName)) {
         return res.status(400).json({ message: "Account Holder Name must contain only alphabets" });
+    }
+    if (!alphaRegex.test(bankName)) {
+        return res.status(400).json({ message: "Bank Account Name must contain only alphabets" });
     }
     if (!alphaRegex.test(branchLocation)) {
         return res.status(400).json({ message: "Branch Location must contain only alphabets" });
@@ -861,7 +864,7 @@ exports.addInvoice = async (req, res) => {
         // Get next Serial No
         const headerResponse = await sheets.spreadsheets.values.get({
             spreadsheetId: spreadsheetId,
-            range: `${headerTab}!A2:A`,
+            range: `${headerTab}!A2:V`, // Extended range to include column V
         });
         const headerRows = headerResponse.data.values || [];
 
@@ -877,7 +880,11 @@ exports.addInvoice = async (req, res) => {
         }
         console.log("Determined nextSerial:", nextSerial);
         
-        // Ensure invoiceNo is unique
+        if (dueDate < invoiceDate) {
+            return res.status(400).json({ message: "Due Date cannot be earlier than Invoice Date" });
+        }
+
+        // Ensure invoiceNo is unique (moved after sequence check)
         const existingInvoiceRow = headerRows.find(row => row[1]?.toString().trim() === invoiceNo.toString().trim());
         if (existingInvoiceRow) {
             return res.status(400).json({ message: "Invoice Number already exists." });
@@ -949,7 +956,8 @@ exports.addInvoice = async (req, res) => {
             accountType || "",
             "Pending",          // S (Index 18) - Invoice Status
             "Not Filed",        // T (Index 19) - GST Status
-            "Fund Pending"      // U (Index 20) - Accounts Status
+            "Fund Pending",     // U (Index 20) - Accounts Status
+            bankName || ""      // V (Index 21)
         ]];
 
         // Save to invoice header
@@ -960,6 +968,7 @@ exports.addInvoice = async (req, res) => {
             insertDataOption: "INSERT_ROWS",
             requestBody: { values: headerRow },
         });
+        console.log("Appended Header Row to Sheet A1:", JSON.stringify(headerRow, null, 2));
 
         // Save to invoice details
         await sheets.spreadsheets.values.append({
@@ -984,7 +993,7 @@ exports.getInvoices = async (req, res) => {
 
         const response = await sheets.spreadsheets.values.get({
             spreadsheetId: spreadsheetId,
-            range: `${tabName}!A2:U`,
+            range: `${tabName}!A2:V`,
         });
 
         const rows = response.data.values || [];
@@ -1016,7 +1025,8 @@ exports.getInvoices = async (req, res) => {
             accountType: row[17] || "",
             invoiceStatus: row[18] || "Pending",
             gstStatus: row[19] || "Not Filed",
-            accountsStatus: row[20] || "Fund Pending"
+            accountsStatus: row[20] || "Fund Pending",
+            bankName: row[21] || "" // V
         }));
 
         res.json(invoices);
@@ -1036,7 +1046,7 @@ exports.getInvoiceBySerial = async (req, res) => {
         // Get Header
         const headerRes = await sheets.spreadsheets.values.get({
             spreadsheetId,
-            range: `${headerTab}!A2:U`,
+            range: `${headerTab}!A2:V`,
         });
         const headerRows = headerRes.data.values || [];
         const headerRow = headerRows.find(row => row[0]?.toString().trim() === serialNo.toString().trim());
@@ -1066,7 +1076,8 @@ exports.getInvoiceBySerial = async (req, res) => {
             accountType: headerRow[17] || "",
             invoiceStatus: headerRow[18] || "Pending",
             gstStatus: headerRow[19] || "Not Filed",
-            accountsStatus: headerRow[20] || "Fund Pending"
+            accountsStatus: headerRow[20] || "Fund Pending",
+            bankName: headerRow[21] || "" // V
         };
 
         // Get Details
@@ -1104,21 +1115,24 @@ exports.updateInvoice = async (req, res) => {
         invoiceNo, invoiceDate, dueDate, profileName, clientName,
         lineItems, signature,
         accountHolderName, accountNo, confirmAccountNo,
-        branchLocation, ifscCode, accountType
+        branchLocation, ifscCode, accountType, bankName
     } = req.body;
 
-    if (!invoiceNo || !invoiceDate || !profileName || !clientName || !lineItems || lineItems.length === 0 || !dueDate || !accountHolderName || !accountNo || !branchLocation || !ifscCode || !accountType) {
-        return res.status(400).json({ message: "Missing required invoice fields (including Bank Details and Due Date)" });
+    if (!invoiceNo || !invoiceDate || !profileName || !clientName || !lineItems || lineItems.length === 0 || !dueDate || !accountHolderName || !accountNo || !branchLocation || !ifscCode || !accountType || !bankName) {
+        return res.status(400).json({ message: "Missing required invoice fields (including Bank Details, Bank Account Name, and Due Date)" });
     }
 
-    const today = new Date().toISOString().split('T')[0];
-    if (dueDate < today) {
-        return res.status(400).json({ message: "Due Date must be a current or future date" });
+    // Loosened dueDate restriction to allow past dates as per request
+    if (dueDate < invoiceDate) {
+        return res.status(400).json({ message: "Due Date cannot be earlier than Invoice Date" });
     }
 
     const alphaRegex = /^[a-zA-Z\s]*$/;
     if (!alphaRegex.test(accountHolderName)) {
         return res.status(400).json({ message: "Account Holder Name must contain only alphabets" });
+    }
+    if (!alphaRegex.test(bankName)) {
+        return res.status(400).json({ message: "Bank Account Name must contain only alphabets" });
     }
     if (!alphaRegex.test(branchLocation)) {
         return res.status(400).json({ message: "Branch Location must contain only alphabets" });
@@ -1138,7 +1152,7 @@ exports.updateInvoice = async (req, res) => {
 
         const headerResponse = await sheets.spreadsheets.values.get({
             spreadsheetId,
-            range: `${headerTab}!A:A`, // Fetch whole column A to be safe
+            range: `${headerTab}!A:V`, // Fetch up to V
         });
         const headerRows = headerResponse.data.values || [];
 
@@ -1156,6 +1170,8 @@ exports.updateInvoice = async (req, res) => {
             console.error(`Invoice with Serial No ${serialNo} not found in header rows:`, headerRows.slice(0, 20).map(r => r[0]));
             return res.status(404).json({ message: "Invoice not found" });
         }
+
+        // 1. Update Header (Update ALL matching rows in case of duplicates)
 
         let totalAmount = 0;
         let totalSgst = 0;
@@ -1202,6 +1218,8 @@ exports.updateInvoice = async (req, res) => {
             ];
         });
 
+        const originalRow = headerRows[headerIndicesToUpdate[0] - 1]; // Get the data of the first matching row
+        
         const updatedHeaderRow = [
             serialNo,
             invoiceNo,
@@ -1220,7 +1238,11 @@ exports.updateInvoice = async (req, res) => {
             confirmAccountNo || "",
             branchLocation || "",
             ifscCode || "",
-            accountType || ""
+            accountType || "",
+            originalRow[18] || "Pending", // S
+            originalRow[19] || "Not Filed", // T
+            originalRow[20] || "Fund Pending", // U
+            bankName || "" // V
         ];
 
         console.log("Updating Header Row(s) with values:", updatedHeaderRow);
@@ -1229,7 +1251,7 @@ exports.updateInvoice = async (req, res) => {
         for (const rowIdx of headerIndicesToUpdate) {
             await sheets.spreadsheets.values.update({
                 spreadsheetId,
-                range: `${headerTab}!A${rowIdx}:R${rowIdx}`,
+                range: `${headerTab}!A${rowIdx}:V${rowIdx}`,
                 valueInputOption: "RAW",
                 requestBody: { values: [updatedHeaderRow] },
             });

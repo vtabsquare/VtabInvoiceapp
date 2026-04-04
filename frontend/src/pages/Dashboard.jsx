@@ -45,7 +45,7 @@ const Dashboard = () => {
     const filteredInvoices = useMemo(() => {
         return invoices.filter(inv => {
             const dateMatch = (!dateFilter.from || inv.invoiceDate >= dateFilter.from) &&
-                             (!dateFilter.to || inv.invoiceDate <= dateFilter.to);
+                (!dateFilter.to || inv.invoiceDate <= dateFilter.to);
             const clientMatch = selectedClient === 'All Clients' || inv.clientName === selectedClient;
             const profileMatch = selectedProfile === 'All Profiles' || inv.profileName === selectedProfile;
             return dateMatch && clientMatch && profileMatch;
@@ -110,36 +110,39 @@ const Dashboard = () => {
                     </div>
                 </header>
 
-                <div style={{ padding: '2rem' }}>
+                <div style={{ padding: '2rem' }} className="content-container">
                     {/* Filters Section */}
-                    <div style={{ 
-                        background: 'white', borderRadius: '1rem', padding: '1.5rem', 
+                    <div className="filter-section" style={{
+                        background: 'white', borderRadius: '1rem', padding: '1.5rem',
                         border: '1px solid #e2e8f0', marginBottom: '1.5rem',
-                        display: 'flex', flexWrap: 'wrap', gap: '1.5rem', alignItems: 'flex-end'
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+                        gap: '1.5rem',
+                        alignItems: 'flex-end'
                     }}>
-                        <div style={{ flex: 1, minWidth: '200px' }}>
+                        <div className="filter-item">
                             <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: '0.5rem' }}>DATE RANGE</label>
                             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                                <input 
-                                    type="date" 
-                                    value={dateFilter.from} 
+                                <input
+                                    type="date"
+                                    value={dateFilter.from}
                                     onChange={(e) => setDateFilter(prev => ({ ...prev, from: e.target.value }))}
-                                    style={{ flex: 1, padding: '0.625rem', borderRadius: '0.5rem', border: '1px solid #e2e8f0', fontSize: '0.875rem' }} 
+                                    style={{ flex: 1, padding: '0.625rem', borderRadius: '0.5rem', border: '1px solid #e2e8f0', fontSize: '0.875rem', minWidth: '130px' }}
                                 />
                                 <span style={{ color: '#94a3b8' }}>to</span>
-                                <input 
-                                    type="date" 
-                                    value={dateFilter.to} 
+                                <input
+                                    type="date"
+                                    value={dateFilter.to}
                                     onChange={(e) => setDateFilter(prev => ({ ...prev, to: e.target.value }))}
-                                    style={{ flex: 1, padding: '0.625rem', borderRadius: '0.5rem', border: '1px solid #e2e8f0', fontSize: '0.875rem' }} 
+                                    style={{ flex: 1, padding: '0.625rem', borderRadius: '0.5rem', border: '1px solid #e2e8f0', fontSize: '0.875rem', minWidth: '130px' }}
                                 />
                             </div>
                         </div>
 
-                        <div style={{ flex: 1, minWidth: '200px' }}>
-                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: '0.5rem' }}>CLIENT FILTER</label>
-                            <select 
-                                value={selectedClient} 
+                        <div className="filter-item">
+                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: '0.5rem' }}>CLIENT APPLICATION FILTER</label>
+                            <select
+                                value={selectedClient}
                                 onChange={(e) => setSelectedClient(e.target.value)}
                                 style={{ width: '100%', padding: '0.625rem', borderRadius: '0.5rem', border: '1px solid #e2e8f0', fontSize: '0.875rem', background: 'white' }}
                             >
@@ -148,10 +151,10 @@ const Dashboard = () => {
                             </select>
                         </div>
 
-                        <div style={{ flex: 1, minWidth: '200px' }}>
-                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: '0.5rem' }}>PROFILE FILTER</label>
-                            <select 
-                                value={selectedProfile} 
+                        <div className="filter-item">
+                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: '0.5rem' }}>PROFILE APPLICATION FILTER</label>
+                            <select
+                                value={selectedProfile}
                                 onChange={(e) => setSelectedProfile(e.target.value)}
                                 style={{ width: '100%', padding: '0.625rem', borderRadius: '0.5rem', border: '1px solid #e2e8f0', fontSize: '0.875rem', background: 'white' }}
                             >
@@ -160,13 +163,17 @@ const Dashboard = () => {
                             </select>
                         </div>
 
-                        <button 
+                        <button
                             onClick={() => {
                                 setDateFilter({ from: '', to: '' });
                                 setSelectedClient('All Clients');
                                 setSelectedProfile('All Profiles');
                             }}
-                            style={{ padding: '0.625rem 1.25rem', borderRadius: '0.5rem', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#64748b', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer' }}
+                            style={{
+                                padding: '0.625rem 1.25rem', borderRadius: '0.5rem', border: '1px solid #e2e8f0',
+                                background: '#f8fafc', color: '#64748b', fontSize: '0.875rem', fontWeight: 600,
+                                cursor: 'pointer', height: '42px'
+                            }}
                         >
                             Reset
                         </button>
@@ -249,13 +256,12 @@ const Dashboard = () => {
                                         <th style={{ padding: '1rem 1.5rem', fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', textAlign: 'right' }}>CGST</th>
                                         <th style={{ padding: '1rem 1.5rem', fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', textAlign: 'right' }}>SGST</th>
                                         <th style={{ padding: '1rem 1.5rem', fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', textAlign: 'right' }}>Total</th>
-                                        {/* <th style={{ padding: '1rem 1.5rem', fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', textAlign: 'center' }}>Status</th> */}
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {loading ? (
                                         <tr>
-                                            <td colSpan="8" style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>Loading data...</td>
+                                            <td colSpan="6" style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>Loading data...</td>
                                         </tr>
                                     ) : filteredInvoices.length > 0 ? (
                                         filteredInvoices.map((inv, idx) => (
@@ -279,20 +285,11 @@ const Dashboard = () => {
                                                 <td style={{ padding: '1.25rem 1.5rem', textAlign: 'right', color: '#64748b' }}>₹{parseFloat(inv.cgst || 0).toLocaleString()}</td>
                                                 <td style={{ padding: '1.25rem 1.5rem', textAlign: 'right', color: '#64748b' }}>₹{parseFloat(inv.sgst || 0).toLocaleString()}</td>
                                                 <td style={{ padding: '1.25rem 1.5rem', textAlign: 'right', fontWeight: 800, color: '#2563eb' }}>₹{parseFloat(inv.total || 0).toLocaleString()}</td>
-                                                {/* <td style={{ padding: '1.25rem 1.5rem', textAlign: 'center' }}>
-                                                    <span style={{ 
-                                                        fontSize: '0.688rem', padding: '0.25rem 0.75rem', borderRadius: '1rem', 
-                                                        background: '#dcfce7', color: '#16a34a', fontWeight: 700,
-                                                        display: 'inline-block', whiteSpace: 'nowrap'
-                                                    }}>
-                                                        INVOICE APPROVED
-                                                    </span>
-                                                </td> */}
                                             </tr>
                                         ))
                                     ) : (
                                         <tr>
-                                            <td colSpan="7" style={{ padding: '4rem', textAlign: 'center', color: '#94a3b8' }}>
+                                            <td colSpan="6" style={{ padding: '4rem', textAlign: 'center', color: '#94a3b8' }}>
                                                 <div style={{ opacity: 0.5, marginBottom: '0.5rem' }}><Filter size={32} style={{ margin: '0 auto' }} /></div>
                                                 No invoices match the current filters.
                                             </td>
@@ -314,6 +311,35 @@ const Dashboard = () => {
                 ::-webkit-scrollbar-track { background: #f1f5f9; }
                 ::-webkit-scrollbar-thumb { background: #cbd5e1; borderRadius: 3px; }
                 ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+                @media (max-width: 1024px) {
+                    .main-content {
+                        padding-top: 60px;
+                    }
+                    header {
+                        padding: 1rem !important;
+                    }
+                    .content-container {
+                        padding: 1rem !important;
+                    }
+                    .filter-section {
+                        grid-template-columns: 1fr !important;
+                        gap: 1.25rem !important;
+                        padding: 1.25rem !important;
+                    }
+                }
+
+                @media (max-width: 640px) {
+                    header h2 {
+                        font-size: 1.1rem !important;
+                    }
+                    header p {
+                        display: none !important;
+                    }
+                    header div[style*="background: #eff6ff"] {
+                        display: none !important;
+                    }
+                }
             `}</style>
         </div>
     );

@@ -101,13 +101,14 @@ const Login = () => {
                 borderRadius: '50%', filter: 'blur(80px)', opacity: 0.4, pointerEvents: 'none'
             }} />
 
-            <div className="card glass animate-fade-in" style={{ width: '100%', maxWidth: '440px', position: 'relative', zIndex: 10 }}>
+            <div className="card glass animate-fade-in" style={{ width: '100%', maxWidth: '600px', position: 'relative', zIndex: 10, padding: '3rem' }}>
                 {/* Header */}
-                <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+                <div style={{ textAlign: 'center', marginBottom: '4rem' }}>
                     <div style={{
-                        width: '3rem', height: '3rem', background: 'linear-gradient(135deg, #2563eb, #9333ea)',
-                        borderRadius: '0.875rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                        marginBottom: '1rem', boxShadow: '0 8px 20px rgba(37,99,235,0.3)'
+                        width: '9.5rem', height: '9.5rem', background: 'linear-gradient(135deg, #2563eb, #9333ea)',
+                        borderRadius: '1.25rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        marginBottom: '1.5rem', boxShadow: '0 12px 24px rgba(37,99,235,0.4)',
+                        border: '4px solid white'
                     }}>
                         <img
                             src="/vtab.jpeg"
@@ -116,12 +117,12 @@ const Login = () => {
                                 width: '100%',
                                 height: '100%',
                                 objectFit: 'cover',
-                                borderRadius: '0.875rem'
+                                borderRadius: '1rem'
                             }}
                         />
                     </div>
-                    <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0f172a', margin: 0, letterSpacing: '-0.025em' }}>VTAB Square</h1>
-                    <p style={{ color: '#64748b', margin: '0.375rem 0 0 0', fontWeight: 500, fontSize: '0.875rem' }}>Invoice Management System</p>
+                    <h1 style={{ fontSize: '2.25rem', fontWeight: 800, color: '#0f172a', margin: 0, letterSpacing: '-0.025em' }}>VTAB Square</h1>
+                    <p style={{ color: '#64748b', margin: '0.5rem 0 0 0', fontWeight: 500, fontSize: '1rem' }}>Invoice Management System</p>
                 </div>
 
                 {/* Alerts */}

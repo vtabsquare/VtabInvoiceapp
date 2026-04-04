@@ -23,17 +23,41 @@ const AddInvoice = () => {
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [showClientModal, setShowClientModal] = useState(false);
     const [lastSerial, setLastSerial] = useState('');
+    const [allInvoices, setAllInvoices] = useState([]); // Store all invoices for date validation
 
-    const generateInvoiceNo = () => {
-        const randomDigits = Math.floor(10000 + Math.random() * 90000);
-        return `${randomDigits}`;
+    const calculateNextInvoiceNo = (invoices) => {
+        if (!invoices || invoices.length === 0) return '0001';
+
+        // Extract and parse invoice numbers
+        const usedNos = invoices
+            .map(inv => parseInt(inv.invoiceNo))
+            .filter(n => !isNaN(n) && n > 0 && n < 10000) // Only consider 1-9999 for sequence
+            .sort((a, b) => a - b);
+
+        if (usedNos.length === 0) return '0001';
+
+        // Find the first gap
+        let nextNo = 1;
+        for (let i = 0; i < usedNos.length; i++) {
+            if (usedNos[i] === nextNo) {
+                nextNo++;
+            } else if (usedNos[i] > nextNo) {
+                break; // Found a gap
+            }
+        }
+
+        return nextNo.toString().padStart(4, '0');
+    };
+
+    const generateInvoiceNo = (invoices = []) => {
+        return calculateNextInvoiceNo(invoices);
     };
 
     // Form State
     const [invoiceData, setInvoiceData] = useState({
-        invoiceNo: generateInvoiceNo(),
+        invoiceNo: '0001', // Initial placeholder, will be updated by fetch
         invoiceDate: new Date().toISOString().split('T')[0],
-        dueDate: '',
+        dueDate: new Date().toISOString().split('T')[0],
         selectedProfile: null,
         selectedClient: null,
         signature: null,
@@ -42,7 +66,8 @@ const AddInvoice = () => {
         confirmAccountNo: '',
         branchLocation: '',
         ifscCode: '',
-        accountType: ''
+        accountType: '',
+        bankName: ''
     });
 
     const [lineItems, setLineItems] = useState([
@@ -55,12 +80,18 @@ const AddInvoice = () => {
 
     const fetchInitialData = async (selectClientSerial = null) => {
         try {
-            const [profRes, clientRes] = await Promise.all([
+            const [profRes, clientRes, invoiceRes] = await Promise.all([
                 axios.get(`${API_BASE_URL}/profiles`),
-                axios.get(`${API_BASE_URL}/clients`)
+                axios.get(`${API_BASE_URL}/clients`),
+                axios.get(`${API_BASE_URL}/invoices`)
             ]);
             setProfiles(profRes.data);
             setClients(clientRes.data);
+            setAllInvoices(invoiceRes.data);
+
+            // Calculate next invoice no
+            const nextNo = calculateNextInvoiceNo(invoiceRes.data);
+            setInvoiceData(prev => ({ ...prev, invoiceNo: nextNo }));
 
             if (selectClientSerial) {
                 const newClient = clientRes.data.find(c => c.serialNo === selectClientSerial);
@@ -76,8 +107,18 @@ const AddInvoice = () => {
     const handleInvoiceChange = (e) => {
         const { name, value } = e.target;
 
-        // Alphabets only for branchLocation and accountHolderName
-        if ((name === 'branchLocation' || name === 'accountHolderName') && value !== '' && !/^[a-zA-Z\s]*$/.test(value)) {
+        // Alphabets only for branchLocation, accountHolderName and bankName
+        if ((name === 'branchLocation' || name === 'accountHolderName' || name === 'bankName') && value !== '' && !/^[a-zA-Z\s]*$/.test(value)) {
+            return;
+        }
+
+        if (name === 'invoiceDate') {
+            // Update invoiceDate AND potentially dueDate
+            setInvoiceData(prev => ({
+                ...prev,
+                invoiceDate: value,
+                dueDate: (!prev.dueDate || prev.dueDate < value) ? value : prev.dueDate
+            }));
             return;
         }
 
@@ -189,6 +230,8 @@ const AddInvoice = () => {
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.width;
         const pageHeight = doc.internal.pageSize.height;
+        const indigoColor = [79, 70, 229]; // Indigo-600
+        const lavenderBg = [240, 240, 255];
         const borderColor = [220, 220, 220];
         const sigHeightNeeded = 45; // Approx height for signature block
         const sigSpaceLimit = pageHeight - sigHeightNeeded - 25; // Space reserved for signature
@@ -480,10 +523,11 @@ const AddInvoice = () => {
 
             autoTable(doc, {
                 startY: currentY,
-                head: [['Account Name', 'Account No', 'IFSC Code', 'Branch']],
+                head: [['Account Name', 'Bank Name', 'Account No', 'IFSC Code', 'Branch']],
                 body: [
                     [
                         invoice.accountHolderName || 'N/A',
+                        invoice.bankName || 'N/A',
                         invoice.accountNo,
                         invoice.ifscCode || 'N/A',
                         invoice.branchLocation || 'N/A'
@@ -647,20 +691,23 @@ const AddInvoice = () => {
             return;
         }
 
-        const today = new Date().toISOString().split('T')[0];
-        if (invoiceData.dueDate < today) {
-            alert("Due Date must be a current or future date.");
+        if (invoiceData.dueDate < invoiceData.invoiceDate) {
+            alert("Due Date cannot be earlier than Invoice Date.");
             return;
         }
 
-        if (!invoiceData.accountHolderName || !invoiceData.accountNo || !invoiceData.branchLocation || !invoiceData.ifscCode || !invoiceData.accountType) {
-            alert("Account Holder Name, Account No, Branch Location, IFSC Code, and Account Type are mandatory fields.");
+        if (!invoiceData.accountHolderName || !invoiceData.bankName || !invoiceData.accountNo || !invoiceData.branchLocation || !invoiceData.ifscCode || !invoiceData.accountType) {
+            alert("Account Holder Name, Bank Name, Account No, Branch Location, IFSC Code, and Account Type are mandatory fields.");
             return;
         }
 
         const alphaRegex = /^[a-zA-Z\s]*$/;
         if (!alphaRegex.test(invoiceData.accountHolderName)) {
             alert("Account Holder Name must contain only alphabets.");
+            return;
+        }
+        if (!alphaRegex.test(invoiceData.bankName)) {
+            alert("Bank Name must contain only alphabets.");
             return;
         }
         if (!alphaRegex.test(invoiceData.branchLocation)) {
@@ -699,6 +746,7 @@ const AddInvoice = () => {
                 })),
                 signature: invoiceData.signature,
                 accountHolderName: invoiceData.accountHolderName,
+                bankName: invoiceData.bankName,
                 accountNo: invoiceData.accountNo,
                 confirmAccountNo: invoiceData.confirmAccountNo,
                 branchLocation: invoiceData.branchLocation,
@@ -740,12 +788,18 @@ const AddInvoice = () => {
             await generatePDF(invoiceData, lineItems, totals, logoBase64);
             setShowSuccessModal(true);
 
+            // Need fresh invoices to calculate next number
+            const refreshRes = await axios.get(`${API_BASE_URL}/invoices`);
+            setAllInvoices(refreshRes.data);
+            const nextNoAfterSave = calculateNextInvoiceNo(refreshRes.data);
+
             setInvoiceData(prev => ({
                 ...prev,
-                invoiceNo: generateInvoiceNo(),
+                invoiceNo: nextNoAfterSave,
                 dueDate: '',
                 selectedClient: null,
                 accountHolderName: '',
+                bankName: '',
                 accountNo: '',
                 confirmAccountNo: '',
                 branchLocation: '',
@@ -793,11 +847,18 @@ const AddInvoice = () => {
                         </div>
                         <div>
                             <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#475569', marginBottom: '0.5rem' }}>Invoice Date*</label>
-                            <input type="date" name="invoiceDate" value={invoiceData.invoiceDate} onChange={handleInvoiceChange} style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', outline: 'none' }} required />
+                            <input
+                                type="date"
+                                name="invoiceDate"
+                                value={invoiceData.invoiceDate}
+                                onChange={handleInvoiceChange}
+                                style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', outline: 'none' }}
+                                required
+                            />
                         </div>
                         <div>
                             <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#475569', marginBottom: '0.5rem' }}>Due Date*</label>
-                            <input type="date" name="dueDate" value={invoiceData.dueDate} onChange={handleInvoiceChange} min={new Date().toISOString().split('T')[0]} style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', outline: 'none' }} required />
+                            <input type="date" name="dueDate" value={invoiceData.dueDate} onChange={handleInvoiceChange} min={invoiceData.invoiceDate} style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', outline: 'none' }} required />
                         </div>
                     </div>
 
@@ -1036,6 +1097,10 @@ const AddInvoice = () => {
                             <div>
                                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#475569', marginBottom: '0.5rem' }}>Account Holder Name</label>
                                 <input type="text" name="accountHolderName" value={invoiceData.accountHolderName} onChange={handleInvoiceChange} style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', outline: 'none' }} placeholder="e.g. Acme Corp" />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#475569', marginBottom: '0.5rem' }}>Bank Name*</label>
+                                <input type="text" name="bankName" value={invoiceData.bankName} onChange={handleInvoiceChange} style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', outline: 'none' }} placeholder="e.g. HDFC" required />
                             </div>
                             <div>
                                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#475569', marginBottom: '0.5rem' }}>Account No*</label>

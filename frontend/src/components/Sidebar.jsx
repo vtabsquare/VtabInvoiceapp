@@ -14,7 +14,7 @@ const Sidebar = () => {
     const navItems = [
         { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
         { label: 'Client Application', icon: UsersIcon, path: '/clients' },
-        { label: 'Client Application', icon: Building2, path: '/profiles' },
+        { label: 'Profile Application', icon: Building2, path: '/profiles' },
         { label: 'Invoice Application', icon: FileText, path: '/invoices' },
     ];
 
@@ -41,15 +41,15 @@ const Sidebar = () => {
                 zIndex: 40
             }} className="mobile-header">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <div style={{ width: '32px', height: '32px', background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ width: '48px', height: '48px', background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <img
                             src="/vtab.jpeg"
                             alt="VTAB Logo"
                             style={{
-                                width: '100%',
-                                height: '100%',
+                                width: '50px',
+                                height: '50px',
                                 objectFit: 'cover',
-                                borderRadius: '2px'
+                                borderRadius: '3px'
                             }}
                         />
                     </div>
@@ -95,8 +95,8 @@ const Sidebar = () => {
                     borderBottom: '1px solid #f1f5f9'
                 }}>
                     <div style={{
-                        width: '60px',
-                        height: '60px',
+                        width: '180px',
+                        height: '180px',
                         background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
                         borderRadius: '14px',
                         padding: '2px', // subtle border effect
@@ -140,7 +140,8 @@ const Sidebar = () => {
                 {/* Blue Navigation Area */}
                 <div style={{
                     flex: 1,
-                    background: '#6262eeff', // Exact black-blue as requested
+                    // background: '#6262eeff', // Exact black-blue as requested
+                    background: '#4B4BB7',
                     display: 'flex',
                     flexDirection: 'column',
                     padding: '1.5rem 1rem'
@@ -164,7 +165,7 @@ const Sidebar = () => {
                                         marginBottom: '0.625rem',
                                         borderRadius: '12px',
                                         border: 'none',
-                                        background: isActive ? '#dcfce7' : 'transparent', // Light Green active
+                                        background: isActive ? '#2bce64ff' : 'transparent', // Light Green active
                                         color: isActive ? '#14532d' : '#f8fafc', // Dark green text if active, white if not
                                         fontWeight: isActive ? 700 : 500,
                                         cursor: 'pointer',
@@ -201,7 +202,7 @@ const Sidebar = () => {
                     }}>
                         <div style={{
                             fontSize: '0.75rem',
-                            color: '#94a3b8',
+                            color: '#090909ff',
                             marginBottom: '1rem',
                             paddingLeft: '0.5rem',
                             overflow: 'hidden',
@@ -220,19 +221,19 @@ const Sidebar = () => {
                                 padding: '0.75rem',
                                 borderRadius: '10px',
                                 border: 'none',
-                                background: 'rgba(239, 68, 68, 0.15)',
-                                color: '#fca5a5',
+                                background: 'rgba(225, 212, 212, 0.94)',
+                                color: '#101010ff',
                                 fontWeight: 600,
                                 cursor: 'pointer',
                                 transition: 'all 0.2s'
                             }}
                             onMouseEnter={(e) => {
                                 e.currentTarget.style.background = 'rgba(239, 68, 68, 0.25)';
-                                e.currentTarget.style.color = '#ef4444';
+                                e.currentTarget.style.color = '#161616ff';
                             }}
                             onMouseLeave={(e) => {
-                                e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)';
-                                e.currentTarget.style.color = '#fca5a5';
+                                e.currentTarget.style.background = 'rgba(225, 212, 212, 0.94)';
+                                e.currentTarget.style.color = '#090909ff';
                             }}
                         >
                             <LogOut style={{ width: '18px' }} /> Logout

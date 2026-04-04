@@ -24,6 +24,7 @@ const EditInvoice = () => {
     const [fetching, setFetching] = useState(true);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [showClientModal, setShowClientModal] = useState(false);
+    const [allInvoices, setAllInvoices] = useState([]); // Store all invoices for date validation
 
     // Form State
     const [invoiceData, setInvoiceData] = useState({
@@ -38,7 +39,8 @@ const EditInvoice = () => {
         confirmAccountNo: '',
         branchLocation: '',
         ifscCode: '',
-        accountType: ''
+        accountType: '',
+        bankName: ''
     });
 
     const [lineItems, setLineItems] = useState([]);
@@ -50,15 +52,17 @@ const EditInvoice = () => {
     const fetchInitialData = async (selectClientSerial = null) => {
         try {
             setFetching(true);
-            const [profRes, clientRes, invoiceRes] = await Promise.all([
+            const [profRes, clientRes, invoiceRes, invoiceResAll] = await Promise.all([
                 axios.get(`${API_BASE_URL}/profiles`),
                 axios.get(`${API_BASE_URL}/clients`),
-                axios.get(`${API_BASE_URL}/invoices/${serialNo}`)
+                axios.get(`${API_BASE_URL}/invoices/${serialNo}`),
+                axios.get(`${API_BASE_URL}/invoices`)
             ]);
 
             const allProfiles = profRes.data;
             const allClients = clientRes.data;
             const inv = invoiceRes.data;
+            setAllInvoices(invoiceResAll.data);
 
             setProfiles(allProfiles);
             setClients(allClients);
@@ -92,7 +96,8 @@ const EditInvoice = () => {
                 confirmAccountNo: inv.accountNo || '',
                 branchLocation: inv.branchLocation || '',
                 ifscCode: inv.ifscCode || '',
-                accountType: inv.accountType || ''
+                accountType: inv.accountType || '',
+                bankName: inv.bankName || ''
             });
 
             setLineItems(inv.lineItems.map(item => ({
@@ -120,8 +125,18 @@ const EditInvoice = () => {
     const handleInvoiceChange = (e) => {
         const { name, value } = e.target;
 
-        // Alphabets only for branchLocation and accountHolderName
-        if ((name === 'branchLocation' || name === 'accountHolderName') && value !== '' && !/^[a-zA-Z\s]*$/.test(value)) {
+        if (name === 'accountHolderName' || name === 'bankName' || name === 'branchLocation') {
+            const alphaRegex = /^[a-zA-Z\s]*$/;
+            if (value !== '' && !alphaRegex.test(value)) return;
+        }
+
+        if (name === 'invoiceDate') {
+            // Update invoiceDate AND potentially dueDate
+            setInvoiceData(prev => ({
+                ...prev,
+                invoiceDate: value,
+                dueDate: (!prev.dueDate || prev.dueDate < value) ? value : prev.dueDate
+            }));
             return;
         }
 
@@ -691,14 +706,13 @@ const EditInvoice = () => {
             return;
         }
 
-        const today = new Date().toISOString().split('T')[0];
-        if (invoiceData.dueDate < today) {
-            alert("Due Date must be a current or future date.");
+        if (invoiceData.dueDate < invoiceData.invoiceDate) {
+            alert("Due Date cannot be earlier than Invoice Date.");
             return;
         }
 
-        if (!invoiceData.accountHolderName || !invoiceData.accountNo || !invoiceData.branchLocation || !invoiceData.ifscCode || !invoiceData.accountType) {
-            alert("Account Holder Name, Account No, Branch Location, IFSC Code, and Account Type are mandatory fields.");
+        if (!invoiceData.accountHolderName || !invoiceData.bankName || !invoiceData.accountNo || !invoiceData.branchLocation || !invoiceData.ifscCode || !invoiceData.accountType) {
+            alert("Account Holder Name, Bank Account Name, Account No, Branch Location, IFSC Code, and Account Type are mandatory fields.");
             return;
         }
 
@@ -743,6 +757,7 @@ const EditInvoice = () => {
                 })),
                 signature: invoiceData.signature,
                 accountHolderName: invoiceData.accountHolderName,
+                bankName: invoiceData.bankName,
                 accountNo: invoiceData.accountNo,
                 confirmAccountNo: invoiceData.confirmAccountNo,
                 branchLocation: invoiceData.branchLocation,
@@ -829,11 +844,18 @@ const EditInvoice = () => {
                         </div>
                         <div>
                             <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#475569', marginBottom: '0.5rem' }}>Invoice Date*</label>
-                            <input type="date" name="invoiceDate" value={invoiceData.invoiceDate} onChange={handleInvoiceChange} style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', outline: 'none' }} required />
+                            <input
+                                type="date"
+                                name="invoiceDate"
+                                value={invoiceData.invoiceDate}
+                                onChange={handleInvoiceChange}
+                                style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', outline: 'none' }}
+                                required
+                            />
                         </div>
                         <div>
                             <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#475569', marginBottom: '0.5rem' }}>Due Date*</label>
-                            <input type="date" name="dueDate" value={invoiceData.dueDate} onChange={handleInvoiceChange} min={new Date().toISOString().split('T')[0]} style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', outline: 'none' }} required />
+                            <input type="date" name="dueDate" value={invoiceData.dueDate} onChange={handleInvoiceChange} min={invoiceData.invoiceDate} style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', outline: 'none' }} required />
                         </div>
                     </div>
 
@@ -1066,8 +1088,12 @@ const EditInvoice = () => {
                         <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', marginBottom: '1.5rem' }}>Bank Details</h3>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '2rem' }} className="bank-details-grid">
                             <div>
-                                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#475569', marginBottom: '0.5rem' }}>Account Holder Name</label>
+                                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#475569', marginBottom: '0.5rem' }}>Account Holder Name*</label>
                                 <input type="text" name="accountHolderName" value={invoiceData.accountHolderName} onChange={handleInvoiceChange} style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', outline: 'none' }} placeholder="e.g. Acme Corp" />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#475569', marginBottom: '0.5rem' }}>Bank Name*</label>
+                                <input type="text" name="bankName" value={invoiceData.bankName} onChange={handleInvoiceChange} style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', outline: 'none' }} placeholder="e.g. HDFC" required />
                             </div>
                             <div>
                                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#475569', marginBottom: '0.5rem' }}>Account No*</label>

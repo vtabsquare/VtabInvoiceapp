@@ -240,17 +240,22 @@ const Profiles = () => {
 
             {/* Main Content */}
             <main style={{ flex: 1, overflow: 'auto' }} className="animate-fade-in-up main-content">
-                <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2.5rem', padding: '1.25rem 2rem' }} className="profiles-header">
+                <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', padding: '1.25rem 2rem' }} className="profiles-header">
                     <div>
-                        <h1 style={{ fontSize: '1.875rem', fontWeight: 800, color: '#0f172a', marginBottom: '0.5rem' }}>Client Application</h1>
-                        <p style={{ color: '#64748b', fontSize: '1rem' }} className="header-subtext">Manage your business profiles and branches</p>
+                        <h1 style={{ fontSize: '1.875rem', fontWeight: 800, color: '#0f172a', marginBottom: '0.25rem' }}>Profile Application</h1>
+                        <p style={{ color: '#64748b', fontSize: '0.875rem' }} className="header-subtext">Manage your business profiles and branches</p>
                     </div>
                     <button
                         onClick={() => setShowModal(true)}
-                        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1.5rem', background: '#2563eb', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 6px -1px rgba(37, 99, 235, 0.2)' }}
+                        style={{ 
+                            display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.625rem 1.25rem', 
+                            background: '#2563eb', color: 'white', border: 'none', borderRadius: '10px', 
+                            fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 6px -1px rgba(37, 99, 235, 0.2)',
+                            whiteSpace: 'nowrap'
+                        }}
                         className="add-profile-btn"
                     >
-                        <Plus style={{ width: '20px' }} /> <span>Add New Profile</span>
+                        <Plus style={{ width: '18px' }} /> <span>Add New Profile</span>
                     </button>
                 </header>
 

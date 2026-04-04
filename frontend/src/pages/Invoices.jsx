@@ -73,11 +73,11 @@ const Invoices = () => {
 
     const formatDate = (dateStr) => {
         if (!dateStr) return 'N/A';
-        return new Date(dateStr).toLocaleDateString('en-IN', {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric'
-        });
+        const d = new Date(dateStr);
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = String(d.getFullYear()).slice(-2);
+        return `${day}-${month}-${year}`;
     };
 
     const formatCurrency = (val) => {
@@ -93,30 +93,39 @@ const Invoices = () => {
             <Sidebar activePage="invoices" />
 
             <main style={{ flex: 1, overflow: 'auto' }} className="animate-fade-in-up main-content">
-                <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2.5rem', padding: '1.25rem 2rem' }} className="invoices-header">
+                <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', padding: '1.25rem 2rem' }} className="invoices-header">
                     <div>
-                        <h1 style={{ fontSize: '1.875rem', fontWeight: 800, color: '#0f172a', marginBottom: '0.5rem' }}>Invoice Application</h1>
-                        <p style={{ color: '#64748b', fontSize: '1rem' }} className="header-subtext">Comprehensive overview of all your business invoices</p>
+                        <h1 style={{ fontSize: '1.875rem', fontWeight: 800, color: '#0f172a', marginBottom: '0.25rem' }}>Invoice Application</h1>
+                        <p style={{ color: '#64748b', fontSize: '0.875rem' }} className="header-subtext">Comprehensive overview of all your business invoices</p>
                     </div>
                     <button
                         onClick={() => navigate('/add-invoice')}
-                        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1.5rem', background: '#2563eb', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 6px -1px rgba(37, 99, 235, 0.2)' }}
+                        style={{ 
+                            display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.625rem 1.25rem', 
+                            background: '#2563eb', color: 'white', border: 'none', borderRadius: '10px', 
+                            fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 6px -1px rgba(37, 99, 235, 0.2)',
+                            whiteSpace: 'nowrap'
+                        }}
                         className="add-invoice-btn"
                     >
-                        <Plus style={{ width: '20px' }} /> <span>Add New Invoice</span>
+                        <Plus style={{ width: '18px' }} /> <span>Add New Invoice</span>
                     </button>
                 </header>
 
                 {/* Search Bar */}
                 <div style={{ padding: '0 2rem' }} className="content-container">
-                    <div style={{ background: 'white', padding: '1.25rem', borderRadius: '16px', border: '1px solid #e2e8f0', marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        <Search style={{ color: '#94a3b8', width: '20px' }} />
+                    <div style={{ 
+                        background: 'white', padding: '1rem 1.25rem', borderRadius: '12px', 
+                        border: '1px solid #e2e8f0', marginBottom: '1.5rem', 
+                        display: 'flex', alignItems: 'center', gap: '0.75rem' 
+                    }}>
+                        <Search style={{ color: '#94a3b8', width: '18px' }} />
                         <input
                             type="text"
                             placeholder="Search by invoice no, client or business name..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            style={{ flex: 1, border: 'none', outline: 'none', fontSize: '1rem', color: '#0f172a' }}
+                            style={{ flex: 1, border: 'none', outline: 'none', fontSize: '0.938rem', color: '#0f172a' }}
                         />
                     </div>
                 </div>
@@ -162,8 +171,8 @@ const Invoices = () => {
                                                 {formatDate(inv.invoiceDate)}
                                             </div>
                                             {inv.dueDate && (
-                                                <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                                                    Due: {formatDate(inv.dueDate)}
+                                                <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 400, whiteSpace: 'nowrap' }}>
+                                                    due : {formatDate(inv.dueDate)}
                                                 </div>
                                             )}
                                         </div>
@@ -224,13 +233,13 @@ const Invoices = () => {
                                                 border: '1px solid #e2e8f0', 
                                                 fontSize: '0.75rem', 
                                                 fontWeight: 600,
-                                                background: inv.accountsStatus === 'Fund Retrieved' ? '#f0fdf4' : '#fff7ed',
-                                                color: inv.accountsStatus === 'Fund Retrieved' ? '#16a34a' : '#ea580c',
+                                                background: inv.accountsStatus === 'Fund Received' ? '#f0fdf4' : '#fff7ed',
+                                                color: inv.accountsStatus === 'Fund Received' ? '#16a34a' : '#ea580c',
                                                 cursor: 'pointer',
                                                 outline: 'none'
                                             }}
                                         >
-                                            <option value="Fund Retrieved">Fund Retrieved</option>
+                                            <option value="Fund Received">Fund Received</option>
                                             <option value="Fund Pending">Fund Pending</option>
                                         </select>
                                     </td>
