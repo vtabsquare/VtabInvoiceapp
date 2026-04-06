@@ -70,20 +70,51 @@ exports.sendOTP = async (req, res) => {
 
         console.log(`OTP for ${email}: ${otp}`);
 
-        // Send Email using Resend
-        await resend.emails.send({
-            from: "VTAB Invoice <onboarding@resend.dev>",
-            to: email,
+        // Send Email using Brevo REST API
+        const https = require('https');
+        const payloadString = JSON.stringify({
+            sender: { name: "VTAB Square", email: process.env.EMAIL_USER },
+            to: [{ email: email }],
             subject: "🔐 Your OTP — VTAB Square Invoice",
-            html: `
+            htmlContent: `
                 <div style="font-family: Inter, sans-serif; max-width:480px;margin:auto;padding:20px;border:1px solid #eee;border-radius:10px">
                     <h2>Password Reset OTP</h2>
                     <p>Your verification code is:</p>
-                    <h1 style="letter-spacing:6px">${otp}</h1>
+                    <h1 style="letter-spacing:6px; color: #0f172a;">${otp}</h1>
                     <p>This OTP will expire in 10 minutes.</p>
-                    <p>VTAB Square Invoice</p>
+                    <hr style="border:0;border-top:1px solid #eee;margin:20px 0">
+                    <p style="color:#666;font-size:12px">VTAB Square Invoice</p>
                 </div>
-            `,
+            `
+        });
+
+        const options = {
+            hostname: 'api.brevo.com',
+            path: '/v3/smtp/email',
+            method: 'POST',
+            headers: {
+                "api-key": process.env.BREVO_API_KEY,
+                "Content-Type": "application/json",
+                "accept": "application/json",
+                "Content-Length": Buffer.byteLength(payloadString)
+            }
+        };
+
+        await new Promise((resolve, reject) => {
+            const req = https.request(options, (res) => {
+                let data = '';
+                res.on('data', chunk => data += chunk);
+                res.on('end', () => {
+                    if (res.statusCode >= 200 && res.statusCode < 300) {
+                        resolve(JSON.parse(data));
+                    } else {
+                        reject(new Error(`Brevo Error ${res.statusCode}: ${data}`));
+                    }
+                });
+            });
+            req.on('error', reject);
+            req.write(payloadString);
+            req.end();
         });
 
         res.json({ message: "OTP sent successfully to your email" });
