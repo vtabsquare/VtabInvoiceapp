@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: vtab-invoice-app
+    env: node
+    buildCommand: npm run install-deps && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SPREADSHEET_ID
+        sync: false
+      - key: EMAIL_USER
+        sync: false
+      - key: EMAIL_PASS
+        sync: false
+      - key: GOOGLE_CREDENTIALS
+        sync: false
