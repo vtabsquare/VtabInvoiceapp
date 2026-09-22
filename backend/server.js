@@ -16,7 +16,7 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use("/api/admin", adminRoutes);
 
 // Root route
-app.get("/", (req, res) => {
+app.get("/api", (req, res) => {
     res.send("VTAB Square Invoice API is running...");
 });
 
