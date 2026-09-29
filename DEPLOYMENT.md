@@ -32,7 +32,7 @@ cp backend/.env.example backend/.env
 nano backend/.env
 ```
 
-**Important:** Use a different port (e.g., 5001) to avoid conflicts with existing apps.
+**Important:** Use a different port (e.g., 5002) to avoid conflicts with existing apps.
 
 ### 4. Build the Frontend
 ```bash
@@ -79,7 +79,7 @@ server {
 
     # Backend API
     location /api/ {
-        proxy_pass http://localhost:5001;
+        proxy_pass http://localhost:5002;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -110,8 +110,8 @@ sudo certbot --nginx -d your_domain.com
 
 ## Port Configuration
 - Frontend: Served by Nginx on port 80/443
-- Backend: Running on port 5001 (configured in .env)
-- Make sure port 5001 is not in use by other applications
+- Backend: Running on port 5002 (configured in .env)
+- Make sure port 5002 is not in use by other applications
 
 ## Monitoring
 - With PM2: `pm2 monit`

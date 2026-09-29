@@ -68,7 +68,8 @@ const Invoices = () => {
         inv.invoiceNo?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         inv.clientName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         inv.profileName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        inv.serialNo?.includes(searchQuery)
+        inv.serialNo?.includes(searchQuery) ||
+        inv.invoiceStatus?.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     const formatDate = (dateStr) => {
@@ -123,6 +124,7 @@ const Invoices = () => {
                         <input
                             type="text"
                             placeholder="Search by invoice no, client or business name..."
+                            aria-label="Search by invoice no, client or business name"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             style={{ flex: 1, border: 'none', outline: 'none', fontSize: '0.938rem', color: '#0f172a' }}
@@ -186,14 +188,15 @@ const Invoices = () => {
                                         <select 
                                             value={inv.invoiceStatus || 'Pending'}
                                             onChange={(e) => handleStatusUpdate(inv.serialNo, 'invoiceStatus', e.target.value)}
+                                            aria-label={`Invoice status for #${inv.serialNo}`}
                                             style={{ 
                                                 padding: '0.4rem 0.6rem', 
                                                 borderRadius: '8px', 
                                                 border: '1px solid #e2e8f0', 
                                                 fontSize: '0.75rem', 
                                                 fontWeight: 600,
-                                                background: inv.invoiceStatus === 'Approved' ? '#f0fdf4' : inv.invoiceStatus === 'Rejected' ? '#fef2f2' : '#fff7ed',
-                                                color: inv.invoiceStatus === 'Approved' ? '#16a34a' : inv.invoiceStatus === 'Rejected' ? '#ef4444' : '#ea580c',
+                                                background: inv.invoiceStatus === 'Approved' ? '#f0fdf4' : inv.invoiceStatus === 'Rejected' ? '#fef2f2' : inv.invoiceStatus === 'Archived' ? '#f1f5f9' : '#fff7ed',
+                                                color: inv.invoiceStatus === 'Approved' ? '#16a34a' : inv.invoiceStatus === 'Rejected' ? '#ef4444' : inv.invoiceStatus === 'Archived' ? '#64748b' : '#ea580c',
                                                 cursor: 'pointer',
                                                 outline: 'none'
                                             }}
@@ -201,12 +204,14 @@ const Invoices = () => {
                                             <option value="Pending">Pending</option>
                                             <option value="Approved">Approved</option>
                                             <option value="Rejected">Rejected</option>
+                                            <option value="Archived">Archived</option>
                                         </select>
                                     </td>
                                     <td style={{ padding: '1.25rem 1.5rem' }}>
                                         <select 
                                             value={inv.gstStatus || 'Not Filed'}
                                             onChange={(e) => handleStatusUpdate(inv.serialNo, 'gstStatus', e.target.value)}
+                                            aria-label={`GST status for #${inv.serialNo}`}
                                             style={{ 
                                                 padding: '0.4rem 0.6rem', 
                                                 borderRadius: '8px', 
@@ -227,6 +232,7 @@ const Invoices = () => {
                                         <select 
                                             value={inv.accountsStatus || 'Fund Pending'}
                                             onChange={(e) => handleStatusUpdate(inv.serialNo, 'accountsStatus', e.target.value)}
+                                            aria-label={`Accounts status for #${inv.serialNo}`}
                                             style={{ 
                                                 padding: '0.4rem 0.6rem', 
                                                 borderRadius: '8px', 
@@ -247,6 +253,7 @@ const Invoices = () => {
                                         <div style={{ display: 'flex', gap: '0.75rem' }}>
                                             <button
                                                 onClick={() => navigate(`/edit-invoice/${inv.serialNo}`)}
+                                                aria-label={`Edit Invoice #${inv.serialNo}`}
                                                 style={{ background: '#f0f9ff', border: 'none', padding: '0.5rem', borderRadius: '8px', cursor: 'pointer', color: '#0ea5e9' }}
                                                 title="Edit Invoice"
                                             >
@@ -254,6 +261,7 @@ const Invoices = () => {
                                             </button>
                                             <button
                                                 onClick={() => handleDelete(inv.serialNo)}
+                                                aria-label={`Delete Invoice #${inv.serialNo}`}
                                                 style={{ background: '#fef2f2', border: 'none', padding: '0.5rem', borderRadius: '8px', cursor: 'pointer', color: '#ef4444' }}
                                                 title="Delete Invoice"
                                             >

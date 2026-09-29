@@ -43,6 +43,17 @@ const InvoicePreview = () => {
     });
 
     useEffect(() => {
+        if (!isComposeModalOpen) return;
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                setIsComposeModalOpen(false);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isComposeModalOpen]);
+
+    useEffect(() => {
         const fetchInvoice = async () => {
             try {
                 const [invRes, profRes, cliRes] = await Promise.all([
@@ -92,6 +103,7 @@ const InvoicePreview = () => {
         let subtotal = 0;
         let sgst = 0;
         let cgst = 0;
+        let tax = 0;
         let total = 0;
 
         lineItems.forEach(i => {
@@ -104,15 +116,17 @@ const InvoicePreview = () => {
 
             const itemSgst = baseAmount * (sRate / 100);
             const itemCgst = baseAmount * (cRate / 100);
+            const itemTax = baseAmount * 0.10;
             const itemTotal = baseAmount + itemSgst + itemCgst;
 
             subtotal += baseAmount;
             sgst += itemSgst;
             cgst += itemCgst;
+            tax += itemTax;
             total += itemTotal;
         });
 
-        return { subtotal, sgst, cgst, total };
+        return { subtotal, sgst, cgst, tax, total };
     }, [lineItems]);
 
     const generatePDFDocument = useCallback(async () => {
@@ -312,12 +326,13 @@ const InvoicePreview = () => {
             { content: formatCurrency(item.amount), styles: { halign: 'right' } },
             { content: `${item.sgstRate || 9}%`, styles: { halign: 'center' } },
             { content: `${item.cgstRate || 9}%`, styles: { halign: 'center' } },
+            { content: `10%`, styles: { halign: 'center' } },
             { content: formatCurrency(item.total), styles: { halign: 'right', fontStyle: 'bold' } },
         ]);
 
         autoTable(doc, {
             startY: currentY,
-            head: [['ITEM', 'DESCRIPTION', 'QTY', 'UNIT PRICE', 'SGST', 'CGST', 'AMOUNT']],
+            head: [['ITEM', 'DESCRIPTION', 'QTY', 'UNIT PRICE', 'SGST', 'CGST', 'TAX (10%)', 'AMOUNT']],
             body: tableRows,
             theme: 'grid',
             headStyles: { fillColor: [241, 245, 249], textColor: [0, 0, 0], fontStyle: 'bold', fontSize: 6, lineWidth: 0.1 },
@@ -330,7 +345,8 @@ const InvoicePreview = () => {
                 3: { halign: 'right', cellWidth: 20 },
                 4: { halign: 'center', cellWidth: 12 },
                 5: { halign: 'center', cellWidth: 12 },
-                6: { halign: 'right', cellWidth: 20 },
+                6: { halign: 'center', cellWidth: 18 },
+                7: { halign: 'right', cellWidth: 20 },
             },
             margin: { top: 62, left: 10, right: 10 },
             didDrawPage: () => { drawPageElements(); }
@@ -361,6 +377,7 @@ const InvoicePreview = () => {
                 ['TOTAL (INR):', { content: formatCurrency(finalTotals.subtotal), styles: { halign: 'right' } }],
                 ['SGST:', { content: formatCurrency(finalTotals.sgst), styles: { halign: 'right' } }],
                 ['CGST:', { content: formatCurrency(finalTotals.cgst), styles: { halign: 'right' } }],
+                ['Tax (10%) Less:', { content: formatCurrency(finalTotals.tax), styles: { halign: 'right', textColor: [150, 0, 0] } }],
                 [
                     { content: 'TOTAL DUE (INR)', styles: { fontStyle: 'bold', fillColor: [0, 0, 0], textColor: [255, 255, 255] } },
                     { content: formatCurrency(totalAmount), styles: { halign: 'right', fontStyle: 'bold', fillColor: [0, 0, 0], textColor: [255, 255, 255] } }
@@ -659,6 +676,7 @@ const InvoicePreview = () => {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                         <button
                             onClick={() => navigate('/invoices')}
+                            aria-label="Back to invoices"
                             style={{ background: 'white', border: '1px solid #e2e8f0', padding: '0.5rem', borderRadius: '12px', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                         >
                             <ArrowLeft size={20} />
@@ -734,9 +752,8 @@ const InvoicePreview = () => {
                     
                     {isAppReady && (
                          <div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}>
-                             <object 
-                                 data={`${pdfUrl}#view=FitH&toolbar=0&navpanes=0&scrollbar=0`} 
-                                 type="application/pdf"
+                             <iframe 
+                                 src={`${pdfUrl}#view=FitH&toolbar=0&navpanes=0&scrollbar=0`} 
                                  title="PDF Exact Preview"
                                  style={{ 
                                      position: 'absolute',
@@ -748,12 +765,7 @@ const InvoicePreview = () => {
                                      opacity: 1, 
                                      transition: 'opacity 0.5s ease-in-out' 
                                  }}
-                             >
-                                <p style={{ padding: '2rem', textAlign: 'center', color: '#64748b' }}>
-                                    Your browser doesn't support inline PDF previews. 
-                                    Please click "Download PDF" to view it.
-                                </p>
-                             </object>
+                             />
                          </div>
                     )}
                 </div>
@@ -761,15 +773,18 @@ const InvoicePreview = () => {
 
             {/* Toast Notification */}
             {toastMessage && (
-                <div style={{
-                    position: 'fixed', bottom: '1.5rem', right: '1.5rem', zIndex: 60,
-                    display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '1rem 1.5rem',
-                    borderRadius: '12px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
-                    background: toastType === 'success' ? '#f0fdf4' : '#fef2f2',
-                    border: `1px solid ${toastType === 'success' ? '#bbf7d0' : '#fecaca'}`,
-                    color: toastType === 'success' ? '#166534' : '#991b1b',
-                    fontWeight: 700
-                }}>
+                <div 
+                    role={toastType === 'error' ? 'alert' : 'status'}
+                    style={{
+                        position: 'fixed', bottom: '1.5rem', right: '1.5rem', zIndex: 60,
+                        display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '1rem 1.5rem',
+                        borderRadius: '12px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                        background: toastType === 'success' ? '#f0fdf4' : '#fef2f2',
+                        border: `1px solid ${toastType === 'success' ? '#bbf7d0' : '#fecaca'}`,
+                        color: toastType === 'success' ? '#166534' : '#991b1b',
+                        fontWeight: 700
+                    }}
+                >
                     {toastType === 'success' ? <Check size={20} color="#16a34a" /> : <X size={20} color="#dc2626" />}
                     <p style={{ margin: 0 }}>{toastMessage}</p>
                 </div>
@@ -777,11 +792,16 @@ const InvoicePreview = () => {
 
             {/* Email Compose Modal */}
             {isComposeModalOpen && (
-                <div style={{
-                    position: 'fixed', inset: 0, zIndex: 100,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(4px)'
-                }}>
+                <div 
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="compose-email-title"
+                    style={{
+                        position: 'fixed', inset: 0, zIndex: 100,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(4px)'
+                    }}
+                >
                     <div style={{
                         background: 'white', width: '100%', maxWidth: '600px',
                         borderRadius: '20px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
@@ -798,12 +818,13 @@ const InvoicePreview = () => {
                                     <Mail size={20} />
                                 </div>
                                 <div>
-                                    <h3 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 700, color: '#0f172a' }}>Compose Email</h3>
+                                    <h3 id="compose-email-title" style={{ margin: 0, fontSize: '1.125rem', fontWeight: 700, color: '#0f172a' }}>Compose Email</h3>
                                     <p style={{ margin: 0, fontSize: '0.75rem', color: '#64748b' }}>Send invoice to multiple recipients</p>
                                 </div>
                             </div>
                             <button 
                                 onClick={() => setIsComposeModalOpen(false)}
+                                aria-label="Close compose email dialog"
                                 style={{ background: 'white', border: '1px solid #e2e8f0', padding: '0.4rem', borderRadius: '8px', cursor: 'pointer', color: '#64748b' }}
                             >
                                 <X size={18} />

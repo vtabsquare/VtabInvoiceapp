@@ -5,6 +5,9 @@ import {
     FileText, TrendingUp, Settings, LogOut, IndianRupee, Menu, X
 } from 'lucide-react';
 
+import axios from 'axios';
+import API_BASE_URL from '../api';
+
 const Sidebar = () => {
     const navigate = useNavigate();
     const location = useLocation();
@@ -19,7 +22,11 @@ const Sidebar = () => {
     ];
 
     const handleLogout = () => {
+        try {
+            axios.post(`${API_BASE_URL}/logout`).catch(() => {});
+        } catch (_) {}
         localStorage.removeItem('adminEmail');
+        localStorage.removeItem('token');
         navigate('/login');
     };
 
@@ -56,6 +63,7 @@ const Sidebar = () => {
                 </div>
                 <button
                     onClick={() => setIsOpen(true)}
+                    aria-label="Open navigation menu"
                     style={{ background: 'none', border: 'none', padding: '0.5rem', cursor: 'pointer', color: '#64748b' }}
                 >
                     <Menu size={24} />
@@ -128,6 +136,7 @@ const Sidebar = () => {
                     <button
                         className="mobile-close"
                         onClick={() => setIsOpen(false)}
+                        aria-label="Close navigation menu"
                         style={{ display: 'none', background: 'none', border: 'none', padding: '0.5rem', cursor: 'pointer', color: '#64748b' }}
                     >
                         <X size={20} />

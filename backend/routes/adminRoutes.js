@@ -2,6 +2,8 @@ const express = require("express");
 const router = express.Router();
 
 const adminController = require("../controllers/adminController");
+const { checkRateLimit, checkOtpRateLimit } = require("../utils/loginRateLimiter");
+const { authenticateToken } = require("../middleware/auth");
 
 /*
 ================================
@@ -9,76 +11,89 @@ const adminController = require("../controllers/adminController");
 ================================
 */
 
-router.post("/login", adminController.loginAdmin);
-router.post("/send-otp", adminController.sendOTP);
-router.post("/verify-otp", adminController.verifyOTP);
-router.post("/change-password", adminController.changePassword);
+router.post("/login", checkRateLimit, adminController.loginAdmin);
+router.post("/logout", authenticateToken, adminController.logoutAdmin);
+router.post("/send-otp", checkOtpRateLimit, adminController.sendOTP);
+router.post("/verify-otp", checkOtpRateLimit, adminController.verifyOTP);
+router.post("/change-password", checkOtpRateLimit, adminController.changePassword);
 
 
 /*
 ================================
- CLIENT MANAGEMENT
+ CLIENT MANAGEMENT (Protected)
 ================================
 */
 
 // Get all clients
-router.get("/clients", adminController.getClients);
+router.get("/clients", authenticateToken, adminController.getClients);
 
 // Create new client
-router.post("/clients", adminController.addClient);
+router.post("/clients", authenticateToken, adminController.addClient);
 
 // Update client
-router.put("/clients/:serialNo", adminController.updateClient);
+router.put("/clients/:serialNo", authenticateToken, adminController.updateClient);
 
 // Delete client
-router.delete("/clients/:serialNo", adminController.deleteClient);
+router.delete("/clients/:serialNo", authenticateToken, adminController.deleteClient);
 
 
 /*
 ================================
- PROFILE MANAGEMENT
+ PROFILE MANAGEMENT (Protected)
 ================================
 */
 
 // Get all profiles
-router.get("/profiles", adminController.getProfiles);
+router.get("/profiles", authenticateToken, adminController.getProfiles);
 
 // Create profile
-router.post("/profiles", adminController.addProfile);
+router.post("/profiles", authenticateToken, adminController.addProfile);
 
 // Update profile
-router.put("/profiles/:serialNo", adminController.updateProfile);
+router.put("/profiles/:serialNo", authenticateToken, adminController.updateProfile);
 
 // Delete profile
-router.delete("/profiles/:serialNo", adminController.deleteProfile);
+router.delete("/profiles/:serialNo", authenticateToken, adminController.deleteProfile);
 
 
 /*
 ================================
- INVOICE MANAGEMENT
+ INVOICE MANAGEMENT (Protected)
 ================================
 */
 
 // Get all invoices
-router.get("/invoices", adminController.getInvoices);
+router.get("/invoices", authenticateToken, adminController.getInvoices);
 
 // Create invoice
-router.post("/invoices", adminController.addInvoice);
+router.post("/invoices", authenticateToken, adminController.addInvoice);
 
 // Get single invoice
-router.get("/invoices/:serialNo", adminController.getInvoiceBySerial);
+router.get("/invoices/:serialNo", authenticateToken, adminController.getInvoiceBySerial);
 
 // Update invoice
-router.put("/invoices/:serialNo", adminController.updateInvoice);
+router.put("/invoices/:serialNo", authenticateToken, adminController.updateInvoice);
 
 // Delete invoice
-router.delete("/invoices/:serialNo", adminController.deleteInvoice);
+router.delete("/invoices/:serialNo", authenticateToken, adminController.deleteInvoice);
 
 // Update status
-router.patch("/invoices/:serialNo/status", adminController.updateInvoiceStatuses);
+router.patch("/invoices/:serialNo/status", authenticateToken, adminController.updateInvoiceStatuses);
 
 // Send Email
-router.post("/invoice/send-email", adminController.sendInvoiceEmail);
+router.post("/invoice/send-email", authenticateToken, adminController.sendInvoiceEmail);
+
+/*
+================================
+ BACKUP & RECOVERY (Protected)
+================================
+*/
+
+// Create timestamped backup export
+router.post("/backup", authenticateToken, adminController.createBackup);
+
+// List available backups
+router.get("/backups", authenticateToken, adminController.listBackups);
 
 /*
 ================================
