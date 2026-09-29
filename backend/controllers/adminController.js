@@ -1,7 +1,21 @@
 const { sheets, drive, SPREADSHEET_ID } = require("../config/googleSheet");
 const otpGenerator = require("otp-generator");
-const otpStore = require("../utils/otpStore");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const { recordFailedAttempt, resetAttempts } = require("../utils/loginRateLimiter");
+const { JWT_SECRET } = require("../middleware/auth");
+const { sanitizeErrorMessage, handleServerError, logInternalError } = require("../utils/securityUtils");
+const { logAudit, getClientIp } = require("../utils/auditService");
+const {
+    isValidIdentifier,
+    validateClientInput,
+    validateProfileInput,
+    validateInvoiceInput,
+} = require("../utils/validators");
+const backupService = require("../utils/backupService");
 // Resend removed, migrated to Brevo API explicitly requested by user
+
+const otpStore = {};
 
 //login
 
@@ -16,24 +30,112 @@ exports.loginAdmin = async (req, res) => {
         });
 
         const rows = response.data.values || [];
-        const adminRow = rows.find((row) => row[0] === email);
+        const adminIndex = rows.findIndex((row) => row[0] === email);
+        const adminRow = adminIndex !== -1 ? rows[adminIndex] : null;
 
         if (!adminRow) {
+            recordFailedAttempt(req);
+            await logAudit({
+                adminEmail: email || 'Unknown',
+                action: 'LOGIN',
+                entity: 'AUTH',
+                status: 'FAILED',
+                details: 'Invalid credentials - account not found',
+                ipAddress: getClientIp(req)
+            });
             return res.status(401).json({ message: "Invalid credentials" });
         }
 
-        // Using plain text comparison as per user request
-        const isMatch = (password === adminRow[1]);
+        const storedPassword = adminRow[1] || "";
+        const isBcrypt = typeof storedPassword === 'string' && /^\$2[abyx]\$\d{2}\$/.test(storedPassword) && storedPassword.length === 60;
+
+        let isMatch = false;
+        let needsMigration = false;
+
+        if (isBcrypt) {
+            isMatch = await bcrypt.compare(password, storedPassword);
+        } else {
+            // Backward-compatible comparison for legacy plain text passwords
+            isMatch = (password === storedPassword);
+            if (isMatch) {
+                needsMigration = true;
+            }
+        }
 
         if (!isMatch) {
+            recordFailedAttempt(req);
+            await logAudit({
+                adminEmail: email || 'Unknown',
+                action: 'LOGIN',
+                entity: 'AUTH',
+                status: 'FAILED',
+                details: 'Invalid credentials - incorrect password',
+                ipAddress: getClientIp(req)
+            });
             return res.status(401).json({ message: "Invalid credentials" });
         }
 
-        res.json({ message: "Login success", email: adminRow[0] });
+        // Login successful: reset rate limiter for this client
+        resetAttempts(req);
+
+        // Auto-migrate legacy plain text password to bcrypt hash in the Google Sheet
+        if (needsMigration) {
+            try {
+                const hashedPassword = await bcrypt.hash(password, 10);
+                await sheets.spreadsheets.values.update({
+                    spreadsheetId: SPREADSHEET_ID,
+                    range: `admin login!B${adminIndex + 2}`,
+                    valueInputOption: "RAW",
+                    requestBody: {
+                        values: [[hashedPassword]],
+                    },
+                });
+                console.log(`✅ Admin password for ${email} automatically migrated to bcrypt hash.`);
+            } catch (migrateErr) {
+                console.error("Auto-migration warning:", migrateErr.message);
+                // Do not block login if sheet update encountered a momentary issue
+            }
+        }
+
+        const jwtSecret = process.env.JWT_SECRET || JWT_SECRET;
+        if (!jwtSecret) {
+            console.error("❌ CRITICAL: JWT_SECRET environment variable is missing.");
+            return res.status(500).json({ error: "Authentication configuration error" });
+        }
+
+        const token = jwt.sign(
+            { email: adminRow[0], role: "admin" },
+            jwtSecret,
+            { expiresIn: process.env.JWT_EXPIRES_IN || "8h" }
+        );
+
+        await logAudit({
+            adminEmail: adminRow[0],
+            action: 'LOGIN',
+            entity: 'AUTH',
+            status: 'SUCCESS',
+            details: 'Admin login successful',
+            ipAddress: getClientIp(req)
+        });
+
+        res.json({ message: "Login success", email: adminRow[0], token });
     } catch (error) {
-        console.error("Login Error:", error);
-        res.status(500).json({ error: error.message });
+        return handleServerError(res, error, req);
     }
+};
+
+// LOGOUT
+exports.logoutAdmin = async (req, res) => {
+    const adminEmail = req.user?.email || 'Admin';
+    await logAudit({
+        adminEmail,
+        action: 'LOGOUT',
+        entity: 'AUTH',
+        status: 'SUCCESS',
+        details: 'Admin logged out',
+        ipAddress: getClientIp(req)
+    });
+    res.json({ message: "Logout successful" });
 };
 
 
@@ -68,7 +170,7 @@ exports.sendOTP = async (req, res) => {
             expires: Date.now() + 10 * 60 * 1000,
         };
 
-        console.log(`OTP for ${email}: ${otp}`);
+        console.log(`Password reset OTP dispatched for ${email}`);
 
         // Send Email using Brevo REST API
         const https = require('https');
@@ -120,8 +222,7 @@ exports.sendOTP = async (req, res) => {
         res.json({ message: "OTP sent successfully to your email" });
 
     } catch (error) {
-        console.error("OTP Error:", error);
-        res.status(500).json({ error: error.message });
+        return handleServerError(res, error, req, "Failed to send verification OTP");
     }
 };
 
@@ -223,11 +324,29 @@ exports.sendInvoiceEmail = async (req, res) => {
             req.end();
         });
 
+        await logAudit({
+            adminEmail: req.user?.email || 'Admin',
+            action: 'SEND_EMAIL',
+            entity: 'INVOICE',
+            entityId: String(invoiceNo || ''),
+            status: 'SUCCESS',
+            details: `Invoice email dispatched to ${to.length} recipient(s)`,
+            ipAddress: getClientIp(req)
+        });
+
         console.log(`✅ Successfully sent email via Brevo. Message ID: ${responseData?.messageId}`);
         res.json({ message: "Email sent successfully!" });
     } catch (err) {
-        console.error("❌ Send Email Error:", err);
-        res.status(500).json({ error: err.message || "Failed to send email" });
+        await logAudit({
+            adminEmail: req.user?.email || 'Admin',
+            action: 'SEND_EMAIL',
+            entity: 'INVOICE',
+            entityId: String(invoiceNo || ''),
+            status: 'FAILED',
+            details: 'Invoice email dispatch failed',
+            ipAddress: getClientIp(req)
+        });
+        return handleServerError(res, err, req, "Failed to send invoice email");
     }
 };
 
@@ -268,22 +387,33 @@ exports.changePassword = async (req, res) => {
             return res.status(404).json({ message: "Email not found" });
         }
 
+        // Store new password securely as a bcrypt hash
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+
         await sheets.spreadsheets.values.update({
             spreadsheetId: SPREADSHEET_ID,
             range: `admin login!B${index + 2}`,
             valueInputOption: "RAW",
             requestBody: {
-                values: [[newPassword]],
+                values: [[hashedPassword]],
             },
         });
 
         delete otpStore[email];
 
+        await logAudit({
+            adminEmail: email,
+            action: 'PASSWORD_RESET',
+            entity: 'AUTH',
+            status: 'SUCCESS',
+            details: 'Password reset completed',
+            ipAddress: getClientIp(req)
+        });
+
         res.json({ message: "Password updated successfully" });
 
     } catch (error) {
-        console.error("Change Password Error:", error);
-        res.status(500).json({ error: error.message });
+        return handleServerError(res, error, req, "Failed to update password");
     }
 };
 
@@ -445,40 +575,23 @@ exports.getClients = async (req, res) => {
 
         res.json(clients);
     } catch (error) {
-        console.error("Get Clients Error:", error);
-        res.status(500).json({ error: error.message });
+        return handleServerError(res, error, req);
     }
 };
 
 exports.addClient = async (req, res) => {
-    console.log("Add Client Request Received:", req.body);
+    console.log("Add Client Request Received for:", req.body?.name);
     const {
         name, industry, email, contact,
         address1, address2, country, state, city, pincode,
         taxNo, gstNo
     } = req.body;
 
-    // Basic validation
-    if (!name || !email || !contact || !address1 || !address2 || !country || !state || !city || !pincode || !taxNo || !gstNo) {
-        console.error("Validation Failed. Missing fields.");
-        return res.status(400).json({ message: "All required fields must be filled (including TAN and GST)" });
-    }
-
-    const alphaRegex = /^[a-zA-Z\s]*$/;
-    if (!alphaRegex.test(name)) {
-        return res.status(400).json({ message: "Client Name must contain only alphabets" });
-    }
-    if (contact.length !== 10) {
-        return res.status(400).json({ message: "Contact Number must be exactly 10 digits" });
-    }
-    if (pincode.length !== 6) {
-        return res.status(400).json({ message: "Pincode must be exactly 6 digits" });
-    }
-    if (taxNo.length < 11 || taxNo.length > 16) {
-        return res.status(400).json({ message: "TAN Number must be 11 to 16 characters" });
-    }
-    if (gstNo.length < 11 || gstNo.length > 16) {
-        return res.status(400).json({ message: "GST Number must be 11 to 16 characters" });
+    // Comprehensive server-side validation
+    const validation = validateClientInput(req.body);
+    if (!validation.isValid) {
+        console.error("Validation Failed:", validation.message);
+        return res.status(400).json({ message: validation.message });
     }
 
     try {
@@ -544,10 +657,18 @@ exports.addClient = async (req, res) => {
         });
 
         console.log("Google Sheets Append Response:", appendResponse.statusText);
+        await logAudit({
+            adminEmail: req.user?.email || 'Admin',
+            action: 'CREATE',
+            entity: 'CLIENT',
+            entityId: String(nextSerial),
+            status: 'SUCCESS',
+            details: `Client created: ${name}`,
+            ipAddress: getClientIp(req)
+        });
         res.json({ message: "Client added successfully", serialNo: nextSerial });
     } catch (error) {
-        console.error("Add Client Error:", error.message);
-        res.status(500).json({ error: error.message });
+        return handleServerError(res, error, req);
     }
 };
 
@@ -555,6 +676,15 @@ exports.updateClient = async (req, res) => {
     const { serialNo } = req.params;
     const updateData = req.body;
     console.log(`Update Client Request for Serial No: ${serialNo}`, updateData);
+
+    if (!isValidIdentifier(serialNo)) {
+        return res.status(400).json({ message: "Invalid client serial number" });
+    }
+
+    const validation = validateClientInput(updateData);
+    if (!validation.isValid) {
+        return res.status(400).json({ message: validation.message });
+    }
 
     try {
         const spreadsheetId = SPREADSHEET_ID;
@@ -575,27 +705,6 @@ exports.updateClient = async (req, res) => {
 
         // Google Sheets rows are 1-indexed, and we skipped the header (A2:A)
         const sheetRowIndex = rowIndex + 2;
-
-        if (!updateData.name || !updateData.email || !updateData.contact || !updateData.address1 || !updateData.address2 || !updateData.country || !updateData.state || !updateData.city || !updateData.pincode || !updateData.taxNo || !updateData.gstNo) {
-            return res.status(400).json({ message: "All required fields must be filled" });
-        }
-
-        const alphaRegex = /^[a-zA-Z\s]*$/;
-        if (!alphaRegex.test(updateData.name)) {
-            return res.status(400).json({ message: "Client Name must contain only alphabets" });
-        }
-        if (updateData.contact.length !== 10) {
-            return res.status(400).json({ message: "Contact Number must be exactly 10 digits" });
-        }
-        if (updateData.pincode.length !== 6) {
-            return res.status(400).json({ message: "Pincode must be exactly 6 digits" });
-        }
-        if (updateData.taxNo.length < 11 || updateData.taxNo.length > 16) {
-            return res.status(400).json({ message: "TAN Number must be 11 to 16 characters" });
-        }
-        if (updateData.gstNo.length < 11 || updateData.gstNo.length > 16) {
-            return res.status(400).json({ message: "GST Number must be 11 to 16 characters" });
-        }
 
         const updatedClient = [
             serialNo,              // A
@@ -622,10 +731,19 @@ exports.updateClient = async (req, res) => {
             },
         });
 
+        await logAudit({
+            adminEmail: req.user?.email || 'Admin',
+            action: 'UPDATE',
+            entity: 'CLIENT',
+            entityId: String(serialNo),
+            status: 'SUCCESS',
+            details: `Client updated: ${serialNo}`,
+            ipAddress: getClientIp(req)
+        });
+
         res.json({ message: "Client updated successfully" });
     } catch (error) {
-        console.error("Update Client Error:", error.message);
-        res.status(500).json({ error: error.message });
+        return handleServerError(res, error, req);
     }
 };
 
@@ -633,13 +751,17 @@ exports.deleteClient = async (req, res) => {
     const { serialNo } = req.params;
     console.log(`Delete Client Request for Serial No: ${serialNo}`);
 
+    if (!isValidIdentifier(serialNo)) {
+        return res.status(400).json({ message: "Invalid client serial number" });
+    }
+
     try {
         const spreadsheetId = SPREADSHEET_ID;
         const tabName = "Client";
 
         const response = await sheets.spreadsheets.values.get({
             spreadsheetId: spreadsheetId,
-            range: `${tabName}!A2:A`,
+            range: `${tabName}!A2:B`,
         });
 
         const rows = response.data.values || [];
@@ -647,6 +769,27 @@ exports.deleteClient = async (req, res) => {
 
         if (rowIndex === -1) {
             return res.status(404).json({ message: "Client not found" });
+        }
+
+        const clientName = rows[rowIndex][1]?.toString().trim();
+
+        // Referential integrity check: protect client if linked to historical invoices (Column F)
+        if (clientName) {
+            try {
+                const invoiceResponse = await sheets.spreadsheets.values.get({
+                    spreadsheetId: spreadsheetId,
+                    range: "'invoice header'!F2:F",
+                });
+                const invoiceRows = invoiceResponse.data.values || [];
+                const isLinked = invoiceRows.some(row => row[0]?.toString().trim().toLowerCase() === clientName.toLowerCase());
+                if (isLinked) {
+                    return res.status(409).json({
+                        message: `Cannot delete client "${clientName}". Historical invoices are linked to this client. In accordance with the Data Retention Policy, please archive rather than delete.`
+                    });
+                }
+            } catch (checkErr) {
+                return handleServerError(res, checkErr, req);
+            }
         }
 
         const sheetRowIndex = rowIndex + 2;
@@ -673,10 +816,19 @@ exports.deleteClient = async (req, res) => {
             }
         });
 
+        await logAudit({
+            adminEmail: req.user?.email || 'Admin',
+            action: 'DELETE',
+            entity: 'CLIENT',
+            entityId: String(serialNo),
+            status: 'SUCCESS',
+            details: `Client deleted: ${serialNo}`,
+            ipAddress: getClientIp(req)
+        });
+
         res.json({ message: "Client deleted successfully" });
     } catch (error) {
-        console.error("Delete Client Error:", error.message);
-        res.status(500).json({ error: error.message });
+        return handleServerError(res, error, req);
     }
 };
 
@@ -708,8 +860,7 @@ exports.getProfiles = async (req, res) => {
 
         res.json(profiles);
     } catch (error) {
-        console.error("Get Profiles Error:", error.message);
-        res.status(500).json({ error: error.message });
+        return handleServerError(res, error, req);
     }
 };
 
@@ -721,32 +872,11 @@ exports.addProfile = async (req, res) => {
         gstNo, teamSize, industry, taxNo
     } = req.body;
 
-    if (!companyName || !email || !contactNo || !address1 || !address2 || !city || !state || !country || !pincode || !teamSize || !gstNo || !taxNo || !industry || !pointOfContact) {
-        console.error("Validation Failed. Missing fields.");
-        return res.status(400).json({ message: "All required fields must be filled (including Industry and Point of Contact)" });
-    }
-
-    const alphaRegex = /^[a-zA-Z\s]*$/;
-    if (!alphaRegex.test(companyName)) {
-        return res.status(400).json({ message: "Business Name must contain only alphabets" });
-    }
-    if (!alphaRegex.test(industry)) {
-        return res.status(400).json({ message: "Industry must contain only alphabets" });
-    }
-    if (!alphaRegex.test(pointOfContact)) {
-        return res.status(400).json({ message: "Point of Contact must contain only alphabets" });
-    }
-    if (contactNo.length !== 10) {
-        return res.status(400).json({ message: "Contact Number must be exactly 10 digits" });
-    }
-    if (pincode.length !== 6) {
-        return res.status(400).json({ message: "Pincode must be exactly 6 digits" });
-    }
-    if (gstNo.length < 11 || gstNo.length > 16) {
-        return res.status(400).json({ message: "GST Number must be 11 to 16 characters" });
-    }
-    if (taxNo.length < 11 || taxNo.length > 16) {
-        return res.status(400).json({ message: "TAN Number must be 11 to 16 characters" });
+    // Comprehensive server-side validation
+    const validation = validateProfileInput(req.body);
+    if (!validation.isValid) {
+        console.error("Validation Failed:", validation.message);
+        return res.status(400).json({ message: validation.message });
     }
 
     try {
@@ -807,10 +937,19 @@ exports.addProfile = async (req, res) => {
             },
         });
 
+        await logAudit({
+            adminEmail: req.user?.email || 'Admin',
+            action: 'CREATE',
+            entity: 'PROFILE',
+            entityId: String(nextSerial),
+            status: 'SUCCESS',
+            details: `Profile created: ${companyName}`,
+            ipAddress: getClientIp(req)
+        });
+
         res.json({ message: "Profile created successfully", serialNo: nextSerial });
     } catch (error) {
-        console.error("Add Profile Error:", error.message);
-        res.status(500).json({ error: error.message });
+        return handleServerError(res, error, req);
     }
 };
 
@@ -818,6 +957,15 @@ exports.updateProfile = async (req, res) => {
     const { serialNo } = req.params;
     const updateData = req.body;
     console.log(`Update Profile Request for Serial No: ${serialNo}`, updateData);
+
+    if (!isValidIdentifier(serialNo)) {
+        return res.status(400).json({ message: "Invalid profile serial number" });
+    }
+
+    const validation = validateProfileInput(updateData);
+    if (!validation.isValid) {
+        return res.status(400).json({ message: validation.message });
+    }
 
     try {
         const spreadsheetId = SPREADSHEET_ID;
@@ -830,33 +978,6 @@ exports.updateProfile = async (req, res) => {
 
         const rows = response.data.values || [];
         const rowIndex = rows.findIndex(row => row[0]?.toString().trim() === serialNo.toString().trim());
-
-        if (!updateData.companyName || !updateData.email || !updateData.contactNo || !updateData.address1 || !updateData.address2 || !updateData.city || !updateData.state || !updateData.country || !updateData.pincode || !updateData.teamSize || !updateData.gstNo || !updateData.taxNo || !updateData.industry || !updateData.pointOfContact) {
-            return res.status(400).json({ message: "All required fields must be filled" });
-        }
-
-        const alphaRegex = /^[a-zA-Z\s]*$/;
-        if (!alphaRegex.test(updateData.companyName)) {
-            return res.status(400).json({ message: "Business Name must contain only alphabets" });
-        }
-        if (!alphaRegex.test(updateData.industry)) {
-            return res.status(400).json({ message: "Industry must contain only alphabets" });
-        }
-        if (!alphaRegex.test(updateData.pointOfContact)) {
-            return res.status(400).json({ message: "Point of Contact must contain only alphabets" });
-        }
-        if (updateData.contactNo.length !== 10) {
-            return res.status(400).json({ message: "Contact Number must be exactly 10 digits" });
-        }
-        if (updateData.pincode.length !== 6) {
-            return res.status(400).json({ message: "Pincode must be exactly 6 digits" });
-        }
-        if (updateData.gstNo.length < 11 || updateData.gstNo.length > 16) {
-            return res.status(400).json({ message: "GST Number must be 11 to 16 characters" });
-        }
-        if (updateData.taxNo.length < 11 || updateData.taxNo.length > 16) {
-            return res.status(400).json({ message: "TAN Number must be 11 to 16 characters" });
-        }
 
         if (rowIndex === -1) {
             return res.status(404).json({ message: "Profile not found" });
@@ -891,10 +1012,19 @@ exports.updateProfile = async (req, res) => {
             },
         });
 
+        await logAudit({
+            adminEmail: req.user?.email || 'Admin',
+            action: 'UPDATE',
+            entity: 'PROFILE',
+            entityId: String(serialNo),
+            status: 'SUCCESS',
+            details: `Profile updated: ${serialNo}`,
+            ipAddress: getClientIp(req)
+        });
+
         res.json({ message: "Profile updated successfully" });
     } catch (error) {
-        console.error("Update Profile Error:", error.message);
-        res.status(500).json({ error: error.message });
+        return handleServerError(res, error, req);
     }
 };
 
@@ -902,13 +1032,17 @@ exports.deleteProfile = async (req, res) => {
     const { serialNo } = req.params;
     console.log(`Delete Profile Request for Serial No: ${serialNo}`);
 
+    if (!isValidIdentifier(serialNo)) {
+        return res.status(400).json({ message: "Invalid profile serial number" });
+    }
+
     try {
         const spreadsheetId = SPREADSHEET_ID;
         const tabName = "profile";
 
         const response = await sheets.spreadsheets.values.get({
             spreadsheetId: spreadsheetId,
-            range: `${tabName}!A2:A`,
+            range: `${tabName}!A2:B`,
         });
 
         const rows = response.data.values || [];
@@ -916,6 +1050,27 @@ exports.deleteProfile = async (req, res) => {
 
         if (rowIndex === -1) {
             return res.status(404).json({ message: "Profile not found" });
+        }
+
+        const profileName = rows[rowIndex][1]?.toString().trim();
+
+        // Referential integrity check: protect profile if linked to historical invoices (Column E)
+        if (profileName) {
+            try {
+                const invoiceResponse = await sheets.spreadsheets.values.get({
+                    spreadsheetId: spreadsheetId,
+                    range: "'invoice header'!E2:E",
+                });
+                const invoiceRows = invoiceResponse.data.values || [];
+                const isLinked = invoiceRows.some(row => row[0]?.toString().trim().toLowerCase() === profileName.toLowerCase());
+                if (isLinked) {
+                    return res.status(409).json({
+                        message: `Cannot delete profile "${profileName}". Historical invoices are linked to this issuer profile. In accordance with the Data Retention Policy, please archive rather than delete.`
+                    });
+                }
+            } catch (checkErr) {
+                return handleServerError(res, checkErr, req);
+            }
         }
 
         const sheetRowIndex = rowIndex + 2;
@@ -942,10 +1097,19 @@ exports.deleteProfile = async (req, res) => {
             }
         });
 
+        await logAudit({
+            adminEmail: req.user?.email || 'Admin',
+            action: 'DELETE',
+            entity: 'PROFILE',
+            entityId: String(serialNo),
+            status: 'SUCCESS',
+            details: `Profile deleted: ${serialNo}`,
+            ipAddress: getClientIp(req)
+        });
+
         res.json({ message: "Profile deleted successfully" });
     } catch (error) {
-        console.error("Delete Profile Error:", error.message);
-        res.status(500).json({ error: error.message });
+        return handleServerError(res, error, req);
     }
 };
 
@@ -958,7 +1122,7 @@ const formatNumeric = (val) => {
 };
 
 exports.addInvoice = async (req, res) => {
-    console.log("Add Invoice Request Received:", req.body);
+    console.log("Add Invoice Request Received for invoiceNo:", req.body?.invoiceNo);
     const {
         invoiceNo, invoiceDate, dueDate, profileName, clientName,
         lineItems, signature,
@@ -966,27 +1130,10 @@ exports.addInvoice = async (req, res) => {
         branchLocation, ifscCode, accountType, bankName
     } = req.body;
 
-    if (!invoiceNo || !invoiceDate || !profileName || !clientName || !lineItems || lineItems.length === 0 || !dueDate || !accountHolderName || !accountNo || !branchLocation || !ifscCode || !accountType || !bankName) {
-        return res.status(400).json({ message: "Missing required invoice fields (including Bank Details, Bank Account Name, and Due Date)" });
-    }
-
-    // Loosened dueDate restriction to allow past dates as per request
-    if (dueDate < invoiceDate) {
-        return res.status(400).json({ message: "Due Date cannot be earlier than Invoice Date" });
-    }
-
-    const alphaRegex = /^[a-zA-Z\s]*$/;
-    if (!alphaRegex.test(accountHolderName)) {
-        return res.status(400).json({ message: "Account Holder Name must contain only alphabets" });
-    }
-    if (!alphaRegex.test(bankName)) {
-        return res.status(400).json({ message: "Bank Account Name must contain only alphabets" });
-    }
-    if (!alphaRegex.test(branchLocation)) {
-        return res.status(400).json({ message: "Branch Location must contain only alphabets" });
-    }
-    if (ifscCode.length < 11 || ifscCode.length > 13) {
-        return res.status(400).json({ message: "IFSC Code must be 11 to 13 characters" });
+    // Comprehensive server-side validation
+    const validation = validateInvoiceInput(req.body);
+    if (!validation.isValid) {
+        return res.status(400).json({ message: validation.message });
     }
 
     try {
@@ -1101,7 +1248,7 @@ exports.addInvoice = async (req, res) => {
             insertDataOption: "INSERT_ROWS",
             requestBody: { values: headerRow },
         });
-        console.log("Appended Header Row to Sheet A1:", JSON.stringify(headerRow, null, 2));
+        console.log("Appended Header Row to Sheet for serial:", nextSerial);
 
         // Save to invoice details
         await sheets.spreadsheets.values.append({
@@ -1112,10 +1259,19 @@ exports.addInvoice = async (req, res) => {
             requestBody: { values: detailsData },
         });
 
+        await logAudit({
+            adminEmail: req.user?.email || 'Admin',
+            action: 'CREATE',
+            entity: 'INVOICE',
+            entityId: String(req.body.invoiceNo || nextSerial),
+            status: 'SUCCESS',
+            details: `Invoice created: ${req.body.invoiceNo || nextSerial}`,
+            ipAddress: getClientIp(req)
+        });
+
         res.json({ message: "Invoice saved successfully", serialNo: nextSerial });
     } catch (error) {
-        console.error("Add Invoice Error:", error.message);
-        res.status(500).json({ error: error.message });
+        return handleServerError(res, error, req);
     }
 };
 
@@ -1164,24 +1320,28 @@ exports.getInvoices = async (req, res) => {
 
         res.json(invoices);
     } catch (error) {
-        console.error("Get Invoices Error:", error.message);
-        res.status(500).json({ error: error.message });
+        return handleServerError(res, error, req);
     }
 };
 
 exports.getInvoiceBySerial = async (req, res) => {
     const { serialNo } = req.params;
+    if (!isValidIdentifier(serialNo)) {
+        return res.status(400).json({ message: "Invalid invoice serial number" });
+    }
+
     try {
         const spreadsheetId = SPREADSHEET_ID;
         const headerTab = "invoice header";
         const detailsTab = "invoice details";
 
-        // Get Header
-        const headerRes = await sheets.spreadsheets.values.get({
+        // Fetch header and detail rows in a single batch request to eliminate sequential Google Sheets API roundtrips
+        const batchRes = await sheets.spreadsheets.values.batchGet({
             spreadsheetId,
-            range: `${headerTab}!A2:V`,
+            ranges: [`${headerTab}!A2:V`, `${detailsTab}!A2:Q`],
         });
-        const headerRows = headerRes.data.values || [];
+
+        const headerRows = batchRes.data?.valueRanges?.[0]?.values || [];
         const headerRow = headerRows.find(row => row[0]?.toString().trim() === serialNo.toString().trim());
 
         if (!headerRow) {
@@ -1213,12 +1373,7 @@ exports.getInvoiceBySerial = async (req, res) => {
             bankName: headerRow[21] || "" // V
         };
 
-        // Get Details
-        const detailsRes = await sheets.spreadsheets.values.get({
-            spreadsheetId,
-            range: `${detailsTab}!A2:Q`,
-        });
-        const detailsRows = detailsRes.data.values || [];
+        const detailsRows = batchRes.data?.valueRanges?.[1]?.values || [];
         const lineItems = detailsRows
             .filter(row => row[0]?.toString().trim() === serialNo.toString().trim())
             .map(row => ({
@@ -1237,8 +1392,7 @@ exports.getInvoiceBySerial = async (req, res) => {
 
         res.json({ ...invoice, lineItems });
     } catch (error) {
-        console.error("Get Invoice Error:", error.message);
-        res.status(500).json({ error: error.message });
+        return handleServerError(res, error, req);
     }
 };
 
@@ -1251,27 +1405,14 @@ exports.updateInvoice = async (req, res) => {
         branchLocation, ifscCode, accountType, bankName
     } = req.body;
 
-    if (!invoiceNo || !invoiceDate || !profileName || !clientName || !lineItems || lineItems.length === 0 || !dueDate || !accountHolderName || !accountNo || !branchLocation || !ifscCode || !accountType || !bankName) {
-        return res.status(400).json({ message: "Missing required invoice fields (including Bank Details, Bank Account Name, and Due Date)" });
+    if (!isValidIdentifier(serialNo)) {
+        return res.status(400).json({ message: "Invalid invoice serial number" });
     }
 
-    // Loosened dueDate restriction to allow past dates as per request
-    if (dueDate < invoiceDate) {
-        return res.status(400).json({ message: "Due Date cannot be earlier than Invoice Date" });
-    }
-
-    const alphaRegex = /^[a-zA-Z\s]*$/;
-    if (!alphaRegex.test(accountHolderName)) {
-        return res.status(400).json({ message: "Account Holder Name must contain only alphabets" });
-    }
-    if (!alphaRegex.test(bankName)) {
-        return res.status(400).json({ message: "Bank Account Name must contain only alphabets" });
-    }
-    if (!alphaRegex.test(branchLocation)) {
-        return res.status(400).json({ message: "Branch Location must contain only alphabets" });
-    }
-    if (ifscCode.length < 11 || ifscCode.length > 13) {
-        return res.status(400).json({ message: "IFSC Code must be 11 to 13 characters" });
+    // Comprehensive server-side validation
+    const validation = validateInvoiceInput(req.body);
+    if (!validation.isValid) {
+        return res.status(400).json({ message: validation.message });
     }
 
     try {
@@ -1466,15 +1607,28 @@ exports.updateInvoice = async (req, res) => {
             });
         }
 
+        await logAudit({
+            adminEmail: req.user?.email || 'Admin',
+            action: 'UPDATE',
+            entity: 'INVOICE',
+            entityId: String(serialNo),
+            status: 'SUCCESS',
+            details: `Invoice updated: ${serialNo}`,
+            ipAddress: getClientIp(req)
+        });
+
         res.json({ message: "Invoice updated successfully" });
     } catch (error) {
-        console.error("Update Invoice Error:", error.message);
-        res.status(500).json({ error: error.message });
+        return handleServerError(res, error, req);
     }
 };
 
 exports.deleteInvoice = async (req, res) => {
     const { serialNo } = req.params;
+    if (!isValidIdentifier(serialNo)) {
+        return res.status(400).json({ message: "Invalid invoice serial number" });
+    }
+
     try {
         const spreadsheetId = SPREADSHEET_ID;
         const headerTab = "invoice header";
@@ -1542,15 +1696,38 @@ exports.deleteInvoice = async (req, res) => {
             });
         }
 
+        await logAudit({
+            adminEmail: req.user?.email || 'Admin',
+            action: 'DELETE',
+            entity: 'INVOICE',
+            entityId: String(serialNo),
+            status: 'SUCCESS',
+            details: `Invoice deleted: ${serialNo}`,
+            ipAddress: getClientIp(req)
+        });
+
         res.json({ message: "Invoice deleted successfully" });
     } catch (error) {
-        console.error("Delete Invoice Error:", error.message);
-        res.status(500).json({ error: error.message });
+        return handleServerError(res, error, req);
     }
 };
 exports.updateInvoiceStatuses = async (req, res) => {
     const { serialNo } = req.params;
     const { invoiceStatus, gstStatus, accountsStatus } = req.body;
+
+    if (!isValidIdentifier(serialNo)) {
+        return res.status(400).json({ message: "Invalid invoice serial number" });
+    }
+
+    if (!invoiceStatus && !gstStatus && !accountsStatus) {
+        return res.status(400).json({ message: "At least one status field must be provided" });
+    }
+
+    if ((invoiceStatus && (typeof invoiceStatus !== 'string' || invoiceStatus.length > 50)) ||
+        (gstStatus && (typeof gstStatus !== 'string' || gstStatus.length > 50)) ||
+        (accountsStatus && (typeof accountsStatus !== 'string' || accountsStatus.length > 50))) {
+        return res.status(400).json({ message: "Invalid status value format or length exceeds 50 characters" });
+    }
 
     try {
         const spreadsheetId = SPREADSHEET_ID;
@@ -1558,7 +1735,7 @@ exports.updateInvoiceStatuses = async (req, res) => {
 
         const response = await sheets.spreadsheets.values.get({
             spreadsheetId,
-            range: `${headerTab}!A:A`, // Match by Serial No
+            range: `${headerTab}!A:S`, // Fetch up to Column S (Invoice Status) for previous status inspection
         });
         const rows = response.data.values || [];
         console.log(`Searching for Serial No: "${serialNo}" in ${rows.length} rows`);
@@ -1601,9 +1778,86 @@ exports.updateInvoiceStatuses = async (req, res) => {
             });
         }
 
+        // Determine audit action type: ARCHIVE, UNARCHIVE, or STATUS_UPDATE
+        let actionType = 'STATUS_UPDATE';
+        if (invoiceStatus) {
+            const currentStatusLower = invoiceStatus.trim().toLowerCase();
+            const prevStatusLower = (rows[rowIndex]?.[18] || '').toString().trim().toLowerCase();
+            if (currentStatusLower === 'archived') {
+                actionType = 'ARCHIVE';
+            } else if (prevStatusLower === 'archived') {
+                actionType = 'UNARCHIVE';
+            }
+        }
+
+        await logAudit({
+            adminEmail: req.user?.email || 'Admin',
+            action: actionType,
+            entity: 'INVOICE',
+            entityId: String(serialNo),
+            status: 'SUCCESS',
+            details: `Invoice status updated: invoiceStatus=${invoiceStatus || 'unchanged'}, gstStatus=${gstStatus || 'unchanged'}, accountsStatus=${accountsStatus || 'unchanged'}${actionType === 'ARCHIVE' ? ' (Archived for retention)' : actionType === 'UNARCHIVE' ? ' (Restored from archive)' : ''}`,
+            ipAddress: getClientIp(req)
+        });
+
         res.json({ message: "Statuses updated successfully" });
     } catch (error) {
-        console.error("Update Invoice Status Error:", error.message);
-        res.status(500).json({ error: error.message });
+        return handleServerError(res, error, req);
     }
 };
+
+/*
+================================
+ BACKUP & RECOVERY (Protected)
+================================
+*/
+
+exports.createBackup = async (req, res) => {
+    const adminEmail = req.user?.email || 'admin';
+    const ipAddress = getClientIp(req);
+
+    try {
+        const options = {
+            includeCsv: req.body?.includeCsv === true,
+        };
+
+        const result = await backupService.createBackup(options);
+
+        // Record successful backup in audit trail (failure-safe)
+        logAudit({
+            adminEmail,
+            action: 'BACKUP',
+            entity: 'SYSTEM',
+            status: 'SUCCESS',
+            details: `Backup created: ${result.filename} (${result.summary.totalRows} rows across ${result.summary.totalSheets} sheets)`,
+            ipAddress,
+        }).catch(() => {});
+
+        return res.status(201).json({
+            message: "Backup created successfully",
+            ...result,
+        });
+    } catch (error) {
+        // Record failed backup in audit trail (failure-safe, no secrets/stack traces)
+        logAudit({
+            adminEmail,
+            action: 'BACKUP',
+            entity: 'SYSTEM',
+            status: 'FAILED',
+            details: 'Backup creation failed',
+            ipAddress,
+        }).catch(() => {});
+
+        return handleServerError(res, error, req, "Failed to create backup.");
+    }
+};
+
+exports.listBackups = async (req, res) => {
+    try {
+        const backups = backupService.listBackups();
+        return res.status(200).json({ backups });
+    } catch (error) {
+        return handleServerError(res, error, req, "Failed to list backups.");
+    }
+};
+

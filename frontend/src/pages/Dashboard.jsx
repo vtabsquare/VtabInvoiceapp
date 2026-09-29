@@ -157,6 +157,7 @@ const Dashboard = () => {
                             Comprehensive filtered overview and dynamic calculations.
                         </p>
                     </div>
+                    <div style={{display:'flex',alignItems:'center',gap:'1rem',flexWrap:'wrap'}}>
                     <div style={{
                         background: '#eff6ff', color: '#2563eb',
                         padding: '0.5rem 1rem', borderRadius: '2rem',
@@ -164,6 +165,7 @@ const Dashboard = () => {
                         border: '1px solid #bfdbfe'
                     }}>
                         {new Date().toLocaleDateString('en-IN', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
+                    </div>
                     </div>
                 </header>
 
@@ -182,6 +184,7 @@ const Dashboard = () => {
                             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                                 <input
                                     type="date"
+                                    aria-label="Filter from date"
                                     value={dateFilter.from}
                                     onChange={(e) => setDateFilter(prev => ({ ...prev, from: e.target.value }))}
                                     style={{ flex: 1, padding: '0.625rem', borderRadius: '0.5rem', border: '1px solid #e2e8f0', fontSize: '0.875rem', minWidth: '130px' }}
@@ -189,6 +192,7 @@ const Dashboard = () => {
                                 <span style={{ color: '#94a3b8' }}>to</span>
                                 <input
                                     type="date"
+                                    aria-label="Filter to date"
                                     value={dateFilter.to}
                                     onChange={(e) => setDateFilter(prev => ({ ...prev, to: e.target.value }))}
                                     style={{ flex: 1, padding: '0.625rem', borderRadius: '0.5rem', border: '1px solid #e2e8f0', fontSize: '0.875rem', minWidth: '130px' }}
@@ -200,6 +204,7 @@ const Dashboard = () => {
                             <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: '0.5rem' }}>CLIENT APPLICATION FILTER</label>
                             <select
                                 value={selectedClient}
+                                aria-label="Filter by client"
                                 onChange={(e) => setSelectedClient(e.target.value)}
                                 style={{ width: '100%', padding: '0.625rem', borderRadius: '0.5rem', border: '1px solid #e2e8f0', fontSize: '0.875rem', background: 'white' }}
                             >
@@ -212,6 +217,7 @@ const Dashboard = () => {
                             <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: '0.5rem' }}>PROFILE APPLICATION FILTER</label>
                             <select
                                 value={selectedProfile}
+                                aria-label="Filter by profile"
                                 onChange={(e) => setSelectedProfile(e.target.value)}
                                 style={{ width: '100%', padding: '0.625rem', borderRadius: '0.5rem', border: '1px solid #e2e8f0', fontSize: '0.875rem', background: 'white' }}
                             >

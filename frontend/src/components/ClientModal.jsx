@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import {
     X, Check, Mail, Phone, MapPin, Globe, Hash, Briefcase
@@ -14,6 +14,17 @@ const ClientModal = ({ isOpen, onClose, onSuccess }) => {
         address1: '', address2: '', country: 'India', state: '', otherState: '',
         city: '', otherCity: '', pincode: '', taxNo: '', gstNo: ''
     });
+
+    useEffect(() => {
+        if (!isOpen) return;
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                onClose();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose]);
 
     const industries = [
         "Apparel & Fashion", "Architecture & Planning", "Business Supplies & Equipment",
@@ -105,21 +116,26 @@ const ClientModal = ({ isOpen, onClose, onSuccess }) => {
     if (!isOpen) return null;
 
     return (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+        <div 
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="client-modal-title"
+            style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
+        >
             <div style={{ background: 'white', width: '100%', maxWidth: '800px', maxHeight: '90vh', overflow: 'auto', borderRadius: '1.25rem', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }}>
                 <form onSubmit={handleSubmit}>
                     <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: 'white', zIndex: 1 }}>
                         <div>
-                            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', margin: 0 }}>Add New Client</h3>
+                            <h3 id="client-modal-title" style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', margin: 0 }}>Add New Client</h3>
                             <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.875rem', color: '#64748b' }}>Fill in the details to register a new client.</p>
                         </div>
-                        <button type="button" onClick={onClose} style={{ background: '#f1f5f9', border: 'none', width: '2rem', height: '2rem', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#64748b' }}>
+                        <button type="button" onClick={onClose} aria-label="Close client dialog" style={{ background: '#f1f5f9', border: 'none', width: '2rem', height: '2rem', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#64748b' }}>
                             <X style={{ width: '1.125rem' }} />
                         </button>
                     </div>
 
                     <div style={{ padding: '2rem' }}>
-                        {error && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', padding: '0.875rem', borderRadius: '0.75rem', marginBottom: '1.5rem', fontSize: '0.875rem' }}>{error}</div>}
+                        {error && <div role="alert" style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', padding: '0.875rem', borderRadius: '0.75rem', marginBottom: '1.5rem', fontSize: '0.875rem' }}>{error}</div>}
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1.5rem' }}>
                             <div style={{ gridColumn: 'span 2' }}>
                                 <h4 style={{ fontSize: '0.875rem', fontWeight: 700, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>

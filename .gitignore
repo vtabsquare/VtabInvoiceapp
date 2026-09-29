@@ -94,6 +94,20 @@ Thumbs.db
 ehthumbs.db
 Desktop.ini
 
-# Service account files (sensitive)
+# Service account files and credentials (sensitive)
 **/google-service-account.json
+**/google-key.json
+*credentials*.json
+*service-account*.json
+*.key.json
 *.json.bak
+
+# Backup snapshots and temp files
+backups/
+**/backups/
+*.tmp
+*.pdf
+
+# Ensure example environment files are preserved
+!.env.example
+!backend/.env.example

@@ -81,6 +81,17 @@ const Profiles = () => {
         fetchProfiles();
     }, []);
 
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                if (showModal) setShowModal(false);
+                if (showSuccessModal) setShowSuccessModal(false);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [showModal, showSuccessModal]);
+
     const fetchProfiles = async () => {
         try {
             const res = await axios.get(`${API_BASE_URL}/profiles`);
@@ -266,6 +277,7 @@ const Profiles = () => {
                         <input
                             type="text"
                             placeholder="Search by company name, email or serial no..."
+                            aria-label="Search by company name, email or serial no"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             style={{ flex: 1, border: 'none', outline: 'none', fontSize: '1rem', color: '#0f172a' }}
@@ -314,6 +326,7 @@ const Profiles = () => {
                                             <div style={{ display: 'flex', gap: '0.5rem' }}>
                                                 <button
                                                     onClick={() => handleEdit(p)}
+                                                    aria-label={`Edit Profile ${p.companyName}`}
                                                     style={{ background: '#f1f5f9', border: 'none', padding: '0.5rem', borderRadius: '8px', cursor: 'pointer', color: '#475569', transition: 'all 0.2s' }}
                                                     title="Edit Profile"
                                                 >
@@ -321,6 +334,7 @@ const Profiles = () => {
                                                 </button>
                                                 <button
                                                     onClick={() => handleDelete(p.serialNo)}
+                                                    aria-label={`Delete Profile ${p.companyName}`}
                                                     style={{ background: '#fef2f2', border: 'none', padding: '0.5rem', borderRadius: '8px', cursor: 'pointer', color: '#ef4444', transition: 'all 0.2s' }}
                                                     title="Delete Profile"
                                                 >
@@ -345,23 +359,23 @@ const Profiles = () => {
 
             {/* Add Profile Modal */}
             {showModal && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+                <div role="dialog" aria-modal="true" aria-labelledby="profile-modal-title" style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
                     <div className="animate-scale-in" style={{ background: 'white', width: '100%', maxWidth: '700px', borderRadius: '24px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', maxHeight: '95vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                         <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div>
-                                <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a' }}>
+                                <h2 id="profile-modal-title" style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a' }}>
                                     {isEditing ? `Edit Profile #${editingSerial}` : 'Tell us about your business'}
                                 </h2>
                                 <p style={{ color: '#64748b', fontSize: '0.875rem' }}>
                                     {isEditing ? 'Update your business information' : 'This helps us personalize your experience'}
                                 </p>
                             </div>
-                            <button onClick={() => setShowModal(false)} style={{ padding: '0.5rem', borderRadius: '8px', border: 'none', background: '#f1f5f9', cursor: 'pointer' }}><X style={{ width: '20px' }} /></button>
+                            <button onClick={() => setShowModal(false)} aria-label="Close profile dialog" style={{ padding: '0.5rem', borderRadius: '8px', border: 'none', background: '#f1f5f9', cursor: 'pointer' }}><X style={{ width: '20px' }} /></button>
                         </div>
 
                         <form onSubmit={handleSubmit} style={{ overflowY: 'auto', flex: 1 }}>
                             <div style={{ padding: '2rem' }}>
-                                {error && <div style={{ padding: '1rem', background: '#fef2f2', color: '#ef4444', borderRadius: '12px', marginBottom: '1.5rem', fontSize: '0.875rem', border: '1px solid #fee2e2' }}>{error}</div>}
+                                {error && <div role="alert" style={{ padding: '1rem', background: '#fef2f2', color: '#ef4444', borderRadius: '12px', marginBottom: '1.5rem', fontSize: '0.875rem', border: '1px solid #fee2e2' }}>{error}</div>}
 
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
                                     <div style={{ gridColumn: 'span 2' }}>
@@ -504,7 +518,7 @@ const Profiles = () => {
 
             {/* Success Modal */}
             {showSuccessModal && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+                <div role="status" aria-modal="true" style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
                     <div className="animate-scale-in" style={{ background: 'white', width: '100%', maxWidth: '400px', borderRadius: '24px', padding: '3rem 2rem', textAlign: 'center', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }}>
                         <div style={{ width: '5rem', height: '5rem', background: '#dcfce7', color: '#16a34a', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem', animation: 'success-pop 0.5s ease-out' }}>
                             <Check style={{ width: '2.5rem', height: '2.5rem', strokeWidth: 3 }} />

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { Mail, Lock, ChevronRight, RefreshCw, KeyRound, ArrowLeft } from 'lucide-react';
+import { Mail, Lock, ChevronRight, RefreshCw, KeyRound, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import '../index.css';
 
 import API_BASE_URL from '../api';
@@ -11,8 +11,10 @@ const Login = () => {
     const [view, setView] = useState('login'); // login | forgot | otp | reset
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [otp, setOtp] = useState('');
     const [newPassword, setNewPassword] = useState('');
+    const [showNewPassword, setShowNewPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
@@ -24,6 +26,9 @@ const Login = () => {
         try {
             const res = await axios.post(`${API_BASE_URL}/login`, { email, password });
             localStorage.setItem('adminEmail', res.data.email || email);
+            if (res.data.token) {
+                localStorage.setItem('token', res.data.token);
+            }
             navigate('/dashboard');
         } catch (err) {
             setError(err.response?.data?.message || 'Login failed');
@@ -38,7 +43,7 @@ const Login = () => {
         setError('');
         try {
             await axios.post(`${API_BASE_URL}/send-otp`, { email });
-            setMessage('OTP sent to your console / email.');
+            setMessage('OTP sent to your registered email address.');
             setView('otp');
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to send OTP');
@@ -127,7 +132,7 @@ const Login = () => {
 
                 {/* Alerts */}
                 {error && (
-                    <div style={{
+                    <div role="alert" style={{
                         marginBottom: '1rem', padding: '0.75rem 1rem', background: '#fef2f2',
                         border: '1px solid #fecaca', color: '#dc2626', fontSize: '0.875rem',
                         borderRadius: '0.625rem', display: 'flex', alignItems: 'center', gap: '0.5rem'
@@ -136,7 +141,7 @@ const Login = () => {
                     </div>
                 )}
                 {message && !error && (
-                    <div style={{
+                    <div role="status" style={{
                         marginBottom: '1rem', padding: '0.75rem 1rem', background: '#f0fdf4',
                         border: '1px solid #bbf7d0', color: '#16a34a', fontSize: '0.875rem',
                         borderRadius: '0.625rem', display: 'flex', alignItems: 'center', gap: '0.5rem'
@@ -178,14 +183,38 @@ const Login = () => {
                             <div style={{ position: 'relative' }}>
                                 <Lock style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', width: '1.125rem', height: '1.125rem', color: '#94a3b8' }} />
                                 <input
-                                    type="password"
+                                    type={showPassword ? "text" : "password"}
                                     className="input"
-                                    style={{ paddingLeft: '2.75rem' }}
+                                    style={{ paddingLeft: '2.75rem', paddingRight: '2.75rem' }}
                                     placeholder="••••••••"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     required
                                 />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    aria-label={showPassword ? "Hide password" : "Show password"}
+                                    style={{
+                                        position: 'absolute',
+                                        right: '0.875rem',
+                                        top: '50%',
+                                        transform: 'translateY(-50%)',
+                                        background: 'none',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        padding: 0,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        color: '#94a3b8'
+                                    }}
+                                >
+                                    {showPassword ? (
+                                        <EyeOff style={{ width: '1.125rem', height: '1.125rem' }} />
+                                    ) : (
+                                        <Eye style={{ width: '1.125rem', height: '1.125rem' }} />
+                                    )}
+                                </button>
                             </div>
                         </div>
 
@@ -239,7 +268,7 @@ const Login = () => {
                             <ArrowLeft style={{ width: '1rem', height: '1rem' }} /> Back
                         </button>
                         <h2 style={{ fontWeight: 700, fontSize: '1.25rem', color: '#0f172a', marginBottom: '0.5rem' }}>Verify OTP</h2>
-                        <p style={{ color: '#64748b', fontSize: '0.875rem', marginBottom: '1.5rem' }}>Enter the 6-digit OTP from your backend console.</p>
+                        <p style={{ color: '#64748b', fontSize: '0.875rem', marginBottom: '1.5rem' }}>Enter the 6-digit OTP sent to your registered email address.</p>
 
                         <div className="input-group">
                             <label className="label">6-Digit Code</label>
@@ -267,10 +296,38 @@ const Login = () => {
                             <div style={{ position: 'relative' }}>
                                 <Lock style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', width: '1.125rem', height: '1.125rem', color: '#94a3b8' }} />
                                 <input
-                                    type="password" className="input" style={{ paddingLeft: '2.75rem' }}
-                                    placeholder="••••••••" value={newPassword}
-                                    onChange={(e) => setNewPassword(e.target.value)} required
+                                    type={showNewPassword ? "text" : "password"}
+                                    className="input"
+                                    style={{ paddingLeft: '2.75rem', paddingRight: '2.75rem' }}
+                                    placeholder="••••••••"
+                                    value={newPassword}
+                                    onChange={(e) => setNewPassword(e.target.value)}
+                                    required
                                 />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowNewPassword(!showNewPassword)}
+                                    aria-label={showNewPassword ? "Hide new password" : "Show new password"}
+                                    style={{
+                                        position: 'absolute',
+                                        right: '0.875rem',
+                                        top: '50%',
+                                        transform: 'translateY(-50%)',
+                                        background: 'none',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        padding: 0,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        color: '#94a3b8'
+                                    }}
+                                >
+                                    {showNewPassword ? (
+                                        <EyeOff style={{ width: '1.125rem', height: '1.125rem' }} />
+                                    ) : (
+                                        <Eye style={{ width: '1.125rem', height: '1.125rem' }} />
+                                    )}
+                                </button>
                             </div>
                         </div>
                         <button type="submit" disabled={loading} className="btn btn-primary" style={{ width: '100%' }}>

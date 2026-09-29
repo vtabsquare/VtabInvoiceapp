@@ -71,7 +71,7 @@ const AddInvoice = () => {
     });
 
     const [lineItems, setLineItems] = useState([
-        { id: Date.now(), item: '', description: '', quantity: 1, amount: 0, sgstRate: 9, cgstRate: 9, sgst: 0, cgst: 0, total: 0 }
+        { id: Date.now(), item: '', description: '', quantity: 1, amount: 0, sgstRate: 9, cgstRate: 9, sgst: 0, cgst: 0, tax: 0, total: 0 }
     ]);
 
     useEffect(() => {
@@ -126,7 +126,7 @@ const AddInvoice = () => {
     };
 
     const addLineItem = () => {
-        setLineItems([...lineItems, { id: Date.now(), item: '', description: '', quantity: 1, amount: 0, sgstRate: 9, cgstRate: 9, sgst: 0, cgst: 0, total: 0 }]);
+        setLineItems([...lineItems, { id: Date.now(), item: '', description: '', quantity: 1, amount: 0, sgstRate: 9, cgstRate: 9, sgst: 0, cgst: 0, tax: 0, total: 0 }]);
     };
 
     const removeLineItem = (itemId) => {
@@ -148,9 +148,10 @@ const AddInvoice = () => {
 
                 const sgst = baseAmount * (sRate / 100);
                 const cgst = baseAmount * (cRate / 100);
+                const tax = baseAmount * 0.10;
                 const total = baseAmount + sgst + cgst;
 
-                return { ...updatedItem, sgst, cgst, total };
+                return { ...updatedItem, sgst, cgst, tax, total };
             }
             return item;
         });
@@ -161,6 +162,7 @@ const AddInvoice = () => {
         let subtotal = 0;
         let sgst = 0;
         let cgst = 0;
+        let tax = 0;
         let total = 0;
 
         lineItems.forEach(i => {
@@ -170,10 +172,11 @@ const AddInvoice = () => {
             subtotal += base;
             sgst += i.sgst;
             cgst += i.cgst;
+            tax += i.tax;
             total += i.total;
         });
 
-        return { subtotal, sgst, cgst, total };
+        return { subtotal, sgst, cgst, tax, total };
     };
 
     const totals = calculateTotals();
@@ -432,12 +435,13 @@ const AddInvoice = () => {
             { content: formatCurrency(item.amount), styles: { halign: 'right' } },
             { content: `${item.sgstRate || 9}%`, styles: { halign: 'center' } },
             { content: `${item.cgstRate || 9}%`, styles: { halign: 'center' } },
+            { content: `10%`, styles: { halign: 'center' } },
             { content: formatCurrency(item.total), styles: { halign: 'right', fontStyle: 'bold' } },
         ]);
 
         autoTable(doc, {
             startY: currentY,
-            head: [['ITEM', 'DESCRIPTION', 'QTY', 'UNIT PRICE', 'SGST', 'CGST', 'AMOUNT']],
+            head: [['ITEM', 'DESCRIPTION', 'QTY', 'UNIT PRICE', 'SGST', 'CGST', 'TAX (10%)', 'AMOUNT']],
             body: tableRows,
             theme: 'grid',
             headStyles: { fillColor: [241, 245, 249], textColor: [0, 0, 0], fontStyle: 'bold', fontSize: 6, lineWidth: 0.1 },
@@ -450,7 +454,8 @@ const AddInvoice = () => {
                 3: { halign: 'right', cellWidth: 20 },
                 4: { halign: 'center', cellWidth: 12 },
                 5: { halign: 'center', cellWidth: 12 },
-                6: { halign: 'right', cellWidth: 20 },
+                6: { halign: 'center', cellWidth: 18 },
+                7: { halign: 'right', cellWidth: 20 },
             },
             margin: { top: 62, left: 10, right: 10 },
             didDrawPage: () => {
@@ -485,6 +490,7 @@ const AddInvoice = () => {
                 ['TOTAL (INR):', { content: formatCurrency(finalTotals.subtotal), styles: { halign: 'right' } }],
                 ['SGST:', { content: formatCurrency(finalTotals.sgst), styles: { halign: 'right' } }],
                 ['CGST:', { content: formatCurrency(finalTotals.cgst), styles: { halign: 'right' } }],
+                ['Tax (10%) Less:', { content: formatCurrency(finalTotals.tax), styles: { halign: 'right', textColor: [150, 0, 0] } }],
                 [
                     { content: 'TOTAL DUE (INR)', styles: { fontStyle: 'bold', fillColor: [0, 0, 0], textColor: [255, 255, 255] } },
                     { content: formatCurrency(totalAmount), styles: { halign: 'right', fontStyle: 'bold', fillColor: [0, 0, 0], textColor: [255, 255, 255] } }
@@ -800,7 +806,7 @@ const AddInvoice = () => {
                 ifscCode: '',
                 accountType: ''
             }));
-            setLineItems([{ id: Date.now(), item: '', description: '', quantity: 1, amount: 0, sgstRate: 9, cgstRate: 9, sgst: 0, cgst: 0, total: 0 }]);
+            setLineItems([{ id: Date.now(), item: '', description: '', quantity: 1, amount: 0, sgstRate: 9, cgstRate: 9, sgst: 0, cgst: 0, tax: 0, total: 0 }]);
 
             // Navigate securely to preview page
             navigate('/invoice/preview/' + res.data.serialNo);
@@ -829,6 +835,7 @@ const AddInvoice = () => {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
                         <button
                             onClick={() => navigate('/invoices')}
+                            aria-label="Back to invoices"
                             style={{ background: 'white', border: '1px solid #e2e8f0', padding: '0.6rem', borderRadius: '12px', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                         >
                             <ArrowLeft size={20} />
@@ -837,7 +844,7 @@ const AddInvoice = () => {
                             <h1 style={{ fontSize: '2rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                                 New Invoice <FileText style={{ color: '#6366f1', width: '28px' }} />
                             </h1>
-                            <p style={{ color: '#64748b' }}>Create professional tax invoices</p>
+                            <p style={{ color: '#64748b' }}>Create professional tax invoices with 9/9/10 tax rules</p>
                         </div>
                     </div>
                 </header>
@@ -1005,7 +1012,7 @@ const AddInvoice = () => {
                                             ₹{formatCurrency(item.total)}
                                         </td>
                                         <td style={{ padding: '1rem' }}>
-                                            <button type="button" onClick={() => removeLineItem(item.id)} style={{ color: '#ef4444', border: 'none', background: 'none', cursor: 'pointer' }}>
+                                            <button type="button" onClick={() => removeLineItem(item.id)} aria-label="Remove line item" style={{ color: '#ef4444', border: 'none', background: 'none', cursor: 'pointer' }}>
                                                 <Trash2 size={16} />
                                             </button>
                                         </td>
@@ -1060,6 +1067,7 @@ const AddInvoice = () => {
                                     <button
                                         type="button"
                                         onClick={() => setInvoiceData(prev => ({ ...prev, signature: null }))}
+                                        aria-label="Remove signature"
                                         style={{ position: 'absolute', top: '0.75rem', right: '0.75rem', background: '#fee2e2', color: '#ef4444', border: 'none', padding: '0.4rem', borderRadius: '8px', cursor: 'pointer' }}
                                     >
                                         <X size={16} />
@@ -1079,9 +1087,13 @@ const AddInvoice = () => {
                                 <span>SGST</span>
                                 <span style={{ fontWeight: 600, color: '#0f172a' }}>₹{formatCurrency(totals.sgst)}</span>
                             </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', color: '#64748b' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem', color: '#64748b' }}>
                                 <span>CGST</span>
                                 <span style={{ fontWeight: 600, color: '#0f172a' }}>₹{formatCurrency(totals.cgst)}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', color: '#64748b' }}>
+                                <span>Tax (10%) Less</span>
+                                <span style={{ fontWeight: 600, color: '#0f172a' }}>₹{formatCurrency(totals.tax)}</span>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', background: '#2563eb', borderRadius: '12px', color: 'white' }}>
                                 <span style={{ fontWeight: 700 }}>Total Due (INR)</span>

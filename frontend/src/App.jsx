@@ -8,19 +8,20 @@ import Invoices from './pages/Invoices';
 import AddInvoice from './pages/AddInvoice';
 import EditInvoice from './pages/EditInvoice';
 import InvoicePreview from './pages/InvoicePreview';
+import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
   return (
     <Router>
       <Routes>
         <Route path="/login" element={<Login />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/clients" element={<Clients />} />
-        <Route path="/profiles" element={<Profiles />} />
-        <Route path="/invoices" element={<Invoices />} />
-        <Route path="/add-invoice" element={<AddInvoice />} />
-        <Route path="/edit-invoice/:serialNo" element={<EditInvoice />} />
-        <Route path="/invoice/preview/:serialNo" element={<InvoicePreview />} />
+        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/clients" element={<ProtectedRoute><Clients /></ProtectedRoute>} />
+        <Route path="/profiles" element={<ProtectedRoute><Profiles /></ProtectedRoute>} />
+        <Route path="/invoices" element={<ProtectedRoute><Invoices /></ProtectedRoute>} />
+        <Route path="/add-invoice" element={<ProtectedRoute><AddInvoice /></ProtectedRoute>} />
+        <Route path="/edit-invoice/:serialNo" element={<ProtectedRoute><EditInvoice /></ProtectedRoute>} />
+        <Route path="/invoice/preview/:serialNo" element={<ProtectedRoute><InvoicePreview /></ProtectedRoute>} />
         <Route path="/" element={<Navigate to="/login" />} />
       </Routes>
     </Router>

@@ -3,7 +3,7 @@
 ## Pre-Deployment ✅
 - [x] .gitignore created and includes .env files
 - [x] .env.example created for backend configuration
-- [x] Backend port set to 5001 (to avoid conflicts)
+- [x] Backend port set to 5002 (to avoid conflicts)
 - [x] Production scripts added to package.json
 - [x] PM2 configuration created
 - [x] Nginx configuration template created
@@ -26,7 +26,7 @@ ssh root@your_droplet_ip
 ### 2. Download and run the deployment script
 ```bash
 # Download the script
-wget https://raw.githubusercontent.com/vtabsquare/VtabInvoiceapp/master/digitalocean-deploy.sh
+wget https://raw.githubusercontent.com/vtabsquare/Invoice-app/master/digitalocean-deploy.sh
 
 # Make it executable
 chmod +x digitalocean-deploy.sh
@@ -50,7 +50,7 @@ sudo ./digitalocean-deploy.sh
   ```
 
 ### 4. Verify Deployment
-- [ ] Check if backend is running: `curl http://localhost:5001`
+- [ ] Check if backend is running: `curl http://localhost:5002`
 - [ ] Check if frontend is accessible: `curl http://your_droplet_ip`
 - [ ] Check PM2 status: `pm2 status`
 - [ ] Check Nginx status: `systemctl status nginx`
@@ -60,7 +60,7 @@ sudo ./digitalocean-deploy.sh
 - [ ] Get SSL certificate: `certbot --nginx -d your_domain.com`
 
 ## Important Notes
-1. **Port Configuration**: The app uses port 5001 for backend to avoid conflicts with existing apps
+1. **Port Configuration**: The app uses port 5002 for backend to avoid conflicts with existing apps
 2. **Environment Variables**: Never commit actual .env file to Git
 3. **Security**: 
    - Use strong passwords
@@ -70,7 +70,7 @@ sudo ./digitalocean-deploy.sh
 5. **Logs**: Check logs in `/var/www/vtab-invoice/logs/` or use `pm2 logs`
 
 ## Troubleshooting
-- If port 5001 is in use, edit ecosystem.config.js and nginx config to use another port
+- If port 5002 is in use, edit ecosystem.config.js and nginx config to use another port
 - Check logs: `pm2 logs vtab-invoice-backend`
 - Restart services: `pm2 restart all` and `systemctl reload nginx`
 - Check permissions: `chown -R www-data:www-data /var/www/vtab-invoice`

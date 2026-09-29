@@ -75,6 +75,17 @@ const Clients = () => {
         fetchClients();
     }, []);
 
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                if (showModal) setShowModal(false);
+                if (showSuccessModal) setShowSuccessModal(false);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [showModal, showSuccessModal]);
+
     const fetchClients = async () => {
         try {
             const res = await axios.get(`${API_BASE_URL}/clients`);
@@ -237,6 +248,7 @@ const Clients = () => {
                         <Search style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', width: '1rem', height: '1rem', color: '#94a3b8' }} />
                         <input
                             type="text" placeholder="Search clients by name or ID..."
+                            aria-label="Search clients by name or ID"
                             style={{ width: '100%', padding: '0.625rem 1rem 0.625rem 2.5rem', borderRadius: '0.75rem', border: '1px solid #e2e8f0', outline: 'none', fontSize: '0.875rem' }}
                             value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
                         />
@@ -284,6 +296,7 @@ const Clients = () => {
                                             <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
                                                 <button
                                                     onClick={() => handleEdit(client)}
+                                                    aria-label={`Edit Client ${client.name}`}
                                                     style={{ background: '#f8fafc', border: '1px solid #e2e8f0', color: '#2563eb', padding: '0.4rem', borderRadius: '0.4rem', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                                                     title="Edit Client"
                                                 >
@@ -291,6 +304,7 @@ const Clients = () => {
                                                 </button>
                                                 <button
                                                     onClick={() => handleDelete(client.serialNo)}
+                                                    aria-label={`Delete Client ${client.name}`}
                                                     style={{ background: '#fff1f2', border: '1px solid #fecaca', color: '#e11d48', padding: '0.4rem', borderRadius: '0.4rem', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                                                     title="Delete Client"
                                                 >
@@ -313,21 +327,21 @@ const Clients = () => {
             </main>
 
             {showModal && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.5)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+                <div role="dialog" aria-modal="true" aria-labelledby="client-modal-title" style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.5)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
                     <div className="animate-fade-in" style={{ background: 'white', width: '100%', maxWidth: '800px', maxHeight: '90vh', overflow: 'auto', borderRadius: '1.25rem', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }}>
                         <form onSubmit={handleSubmit}>
                             <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: 'white', zIndex: 1 }}>
                                 <div>
-                                    <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', margin: 0 }}>{isEditing ? `Edit Client #${editingSerial}` : 'Add New Client'}</h3>
+                                    <h3 id="client-modal-title" style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', margin: 0 }}>{isEditing ? `Edit Client #${editingSerial}` : 'Add New Client'}</h3>
                                     <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.875rem', color: '#64748b' }}>{isEditing ? 'Update client information.' : 'Fill in the details to register a new client.'}</p>
                                 </div>
-                                <button type="button" onClick={() => setShowModal(false)} style={{ background: '#f1f5f9', border: 'none', width: '2rem', height: '2rem', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#64748b' }}>
+                                <button type="button" onClick={() => setShowModal(false)} aria-label="Close client dialog" style={{ background: '#f1f5f9', border: 'none', width: '2rem', height: '2rem', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#64748b' }}>
                                     <X style={{ width: '1.125rem' }} />
                                 </button>
                             </div>
 
                             <div style={{ padding: '2rem' }}>
-                                {error && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', padding: '0.875rem', borderRadius: '0.75rem', marginBottom: '1.5rem', fontSize: '0.875rem' }}>{error}</div>}
+                                {error && <div role="alert" style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', padding: '0.875rem', borderRadius: '0.75rem', marginBottom: '1.5rem', fontSize: '0.875rem' }}>{error}</div>}
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1.5rem' }}>
                                     <div style={{ gridColumn: 'span 2' }}>
                                         <h4 style={{ fontSize: '0.875rem', fontWeight: 700, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -445,7 +459,7 @@ const Clients = () => {
             )}
 
             {showSuccessModal && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+                <div role="status" aria-modal="true" style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
                     <div className="animate-scale-in" style={{ background: 'white', width: '100%', maxWidth: '400px', borderRadius: '1.5rem', padding: '2.5rem 2rem', textAlign: 'center', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }}>
                         <div style={{ width: '4rem', height: '4rem', background: '#dcfce7', color: '#16a34a', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem', animation: 'success-pop 0.5s ease-out' }}>
                             <Check style={{ width: '2rem', height: '2rem', strokeWidth: 3 }} />

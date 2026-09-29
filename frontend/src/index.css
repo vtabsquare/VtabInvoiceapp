@@ -169,3 +169,13 @@ input {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
+
+/* Accessibility: Visible Keyboard Focus Indicators */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--primary, #2563eb);
+  outline-offset: 2px;
+}

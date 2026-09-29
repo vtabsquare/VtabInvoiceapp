@@ -1,11 +1,27 @@
 const { google } = require("googleapis");
 const path = require("path");
+const fs = require("fs");
 require("dotenv").config();
 
 let auth;
 
-// If GOOGLE_CREDENTIALS is provided (Render / Production) or individual env vars
-if (process.env.GOOGLE_CREDENTIALS || (process.env.GOOGLE_CLIENT_EMAIL && process.env.GOOGLE_PRIVATE_KEY)) {
+const keyFile = path.join(__dirname, "../google-service-account.json");
+const hasLocalKeyFile = fs.existsSync(keyFile);
+
+// Prefer local JSON key file when present
+if (hasLocalKeyFile) {
+  auth = new google.auth.GoogleAuth({
+    keyFile,
+    scopes: [
+      "https://www.googleapis.com/auth/spreadsheets",
+      "https://www.googleapis.com/auth/drive.file"
+    ],
+  });
+
+  console.log("✅ Google Auth initialized using local key file.");
+}
+// Otherwise use environment variables
+else if (process.env.GOOGLE_CREDENTIALS || (process.env.GOOGLE_CLIENT_EMAIL && process.env.GOOGLE_PRIVATE_KEY)) {
   try {
     let credentials;
     if (process.env.GOOGLE_CREDENTIALS) {
@@ -18,11 +34,16 @@ if (process.env.GOOGLE_CREDENTIALS || (process.env.GOOGLE_CLIENT_EMAIL && proces
       };
     }
 
+    const normalizedPrivateKey = credentials.private_key
+      .replace(/^"|"$/g, "")
+      .replace(/^'|'$/g, "")
+      .replace(/\\n/g, "\n")
+      .trim();
+
     auth = new google.auth.GoogleAuth({
       credentials: {
         ...credentials,
-        // Fix for Render newline issue in private key
-        private_key: credentials.private_key.replace(/\\n/g, "\n"),
+        private_key: normalizedPrivateKey,
       },
       scopes: [
         "https://www.googleapis.com/auth/spreadsheets",
@@ -36,19 +57,9 @@ if (process.env.GOOGLE_CREDENTIALS || (process.env.GOOGLE_CLIENT_EMAIL && proces
     process.exit(1);
   }
 } 
-// Local development (use JSON file)
+// No credentials found
 else {
-  const keyFile = path.join(__dirname, "../google-service-account.json");
-
-  auth = new google.auth.GoogleAuth({
-    keyFile,
-    scopes: [
-      "https://www.googleapis.com/auth/spreadsheets",
-      "https://www.googleapis.com/auth/drive.file"
-    ],
-  });
-
-  console.log("✅ Google Auth initialized using local key file.");
+  throw new Error("Google credentials not found. Provide a local google-service-account.json file or configure Google credential environment variables.");
 }
 
 const sheets = google.sheets({
@@ -61,7 +72,16 @@ const drive = google.drive({
   auth,
 });
 
-const SPREADSHEET_ID =
-  process.env.SPREADSHEET_ID || "1HbHy2ZtNb2eU4ot2h1bhdLAMxQQ35WunRb8_jeFM61A";
+const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 
-module.exports = { sheets, drive, SPREADSHEET_ID };
+if (!SPREADSHEET_ID) {
+  console.warn("⚠️ Warning: SPREADSHEET_ID is not configured in environment variables.");
+}
+
+module.exports = {
+  sheets,
+  drive,
+  get SPREADSHEET_ID() {
+    return process.env.SPREADSHEET_ID;
+  }
+};
