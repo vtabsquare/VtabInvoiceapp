@@ -39,10 +39,7 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 // API Routes
 app.use("/api/admin", adminRoutes);
 
-// Root routes
-app.get("/", (req, res) => {
-    res.send("VTAB Square Invoice API is running...");
-});
+// API Status route
 app.get("/api", (req, res) => {
     res.send("VTAB Square Invoice API is running...");
 });
@@ -69,30 +66,32 @@ const handleHealthCheck = async (req, res) => {
 app.get("/health", handleHealthCheck);
 app.get("/api/health", handleHealthCheck);
 
-
 // Serve frontend in production
-if (process.env.NODE_ENV === "production" || process.env.SERVE_FRONTEND === "true") {
-    const fs = require("fs");
-    const frontendPath = path.join(__dirname, "../frontend/dist");
+const isProduction = process.env.NODE_ENV === "production" || process.env.SERVE_FRONTEND === "true";
+const frontendPath = path.join(__dirname, "../frontend/dist");
+const fs = require("fs");
 
-    if (fs.existsSync(frontendPath)) {
-        app.use(express.static(frontendPath));
+if (isProduction && fs.existsSync(frontendPath)) {
+    // Serve static files from React build directory
+    app.use(express.static(frontendPath));
 
-        // Catch-all route for SPA
-        app.use((req, res) => {
-            if (!req.path.startsWith("/api")) {
-                const indexPath = path.join(frontendPath, "index.html");
-                if (fs.existsSync(indexPath)) {
-                    res.sendFile(indexPath);
-                } else {
-                    res.status(404).send("Frontend build not found");
-                }
-            }
-        });
-        console.log("🚀 Frontend static files are being served from:", frontendPath);
-    } else {
-        console.log("⚠️ Frontend distribution directory not found. Skipping static file serving.");
-    }
+    // SPA catch-all route: serves index.html for all non-API paths
+    app.use((req, res, next) => {
+        if (req.path.startsWith("/api") || req.path === "/health") {
+            return next();
+        }
+        const indexPath = path.join(frontendPath, "index.html");
+        if (fs.existsSync(indexPath)) {
+            return res.sendFile(indexPath);
+        }
+        next();
+    });
+    console.log("🚀 Frontend static files are being served from:", frontendPath);
+} else {
+    // In development or when frontend build is not present, serve API status on /
+    app.get("/", (req, res) => {
+        res.send("VTAB Square Invoice API is running...");
+    });
 }
 
 // 404 handler for unmatched API routes
