@@ -13,26 +13,60 @@ const PORT = process.env.PORT || 5000;
 // Security hardening: disable framework fingerprinting header
 app.disable('x-powered-by');
 
-// Hardened CORS configuration: restrict to authorized origins with local dev & test fallback
-const allowedOrigins = process.env.ALLOWED_ORIGINS
+// Hardened CORS configuration: allow same-origin, Render deployments, local dev, and configured origins
+const configuredOrigins = process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
     : ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:3000', 'http://localhost:5000', 'http://localhost:5002'];
 
-const corsOptions = {
-    origin: function (origin, callback) {
-        // Allow requests with no origin (e.g. curl, Node.js tests, server-to-server)
-        if (!origin) return callback(null, true);
-        if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
-            return callback(null, true);
-        }
-        return callback(new Error('Blocked by CORS policy'));
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
+const corsOptionsDelegate = (req, callback) => {
+    const origin = req.header('Origin');
+    const host = req.header('host');
+    const forwardedHost = req.header('x-forwarded-host');
+
+    // Allow requests with no origin (e.g. curl, Node.js tests, server-to-server)
+    if (!origin || process.env.NODE_ENV !== 'production') {
+        return callback(null, {
+            origin: true,
+            credentials: true,
+            methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+            allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
+        });
+    }
+
+    // Check same-origin (host header or forwarded host matches origin)
+    const isSameOrigin = (
+        origin === `https://${host}` ||
+        origin === `http://${host}` ||
+        (forwardedHost && (origin === `https://${forwardedHost}` || origin === `http://${forwardedHost}`))
+    );
+
+    // Check Render deployment domains
+    const isRenderDomain = (
+        origin.endsWith('.onrender.com') ||
+        (process.env.RENDER_EXTERNAL_URL && origin === process.env.RENDER_EXTERNAL_URL) ||
+        (process.env.RENDER_EXTERNAL_HOSTNAME && origin.includes(process.env.RENDER_EXTERNAL_HOSTNAME))
+    );
+
+    // Check localhost and local IP addresses
+    const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+
+    // Check configured allowed origins
+    const isConfigured = configuredOrigins.includes(origin);
+
+    if (isSameOrigin || isRenderDomain || isLocalhost || isConfigured) {
+        return callback(null, {
+            origin: true,
+            credentials: true,
+            methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+            allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
+        });
+    }
+
+    // Disallow cross-origin requests safely without throwing a 500 error
+    return callback(null, { origin: false });
 };
 
-app.use(cors(corsOptions));
+app.use(cors(corsOptionsDelegate));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
