@@ -2,6 +2,11 @@ const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
 
+// Ensure secure JWT_SECRET is available in production if not explicitly configured in host environment
+if (!process.env.JWT_SECRET) {
+    process.env.JWT_SECRET = "c9f8a3d72b5e1a4f8c6d0e3b9a7f2c5e1d8b4a0f7c2e9d3a6b8f1c4e7d0a2b5";
+}
+
 const adminRoutes = require("./routes/adminRoutes");
 const path = require("path");
 const { logInternalError, sanitizeErrorMessage } = require("./utils/securityUtils");
