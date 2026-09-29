@@ -1,0 +1,16 @@
+{
+  "name": "vtab-invoice-app",
+  "version": "1.0.0",
+  "description": "VTAB Square Invoice Application",
+  "scripts": {
+    "install-deps": "cd backend && npm install && cd ../frontend && npm install",
+    "build": "cd frontend && npm run build",
+    "start": "cd backend && npm start",
+    "dev": "concurrently \"cd backend && npm run dev\" \"cd frontend && npm run dev\"",
+    "test": "npm --prefix backend test && npm --prefix frontend test",
+    "deploy": "npm run install-deps && npm run build && npm run start"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

@@ -1,0 +1,322 @@
+import React, { useState, useEffect } from 'react';
+import {
+    Plus, Search, FileText, Calendar, Building2, User,
+    Download, Trash2, IndianRupee, ChevronRight, Filter, ExternalLink, Pencil
+} from 'lucide-react';
+import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
+import Sidebar from '../components/Sidebar';
+import API_BASE_URL from '../api';
+
+const Invoices = () => {
+    const navigate = useNavigate();
+    const [invoices, setInvoices] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [searchQuery, setSearchQuery] = useState('');
+
+    useEffect(() => {
+        fetchInvoices();
+    }, []);
+
+    const fetchInvoices = async () => {
+        try {
+            setLoading(true);
+            const res = await axios.get(`${API_BASE_URL}/invoices`);
+            setInvoices(res.data);
+        } catch (err) {
+            console.error("Error fetching invoices:", err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleDelete = async (serialNo) => {
+        if (!window.confirm(`Are you sure you want to delete invoice #${serialNo}?`)) return;
+        try {
+            await axios.delete(`${API_BASE_URL}/invoices/${serialNo}`);
+            fetchInvoices();
+        } catch (err) {
+            alert(err.response?.data?.message || 'Failed to delete invoice');
+        }
+    };
+
+    const handleStatusUpdate = async (serialNo, field, value) => {
+        const fieldLabels = {
+            invoiceStatus: 'Invoice Status',
+            gstStatus: 'GST Status',
+            accountsStatus: 'Accounts Status'
+        };
+        
+        if (!window.confirm(`Are you sure you want to change ${fieldLabels[field]} to "${value}"?`)) {
+            return;
+        }
+
+        try {
+            await axios.patch(`${API_BASE_URL}/invoices/${serialNo}/status`, {
+                [field]: value
+            });
+            // Update local state
+            setInvoices(prev => prev.map(inv => 
+                inv.serialNo === serialNo ? { ...inv, [field]: value } : inv
+            ));
+        } catch (err) {
+            alert(err.response?.data?.message || 'Failed to update status');
+        }
+    };
+
+    const filteredInvoices = invoices.filter(inv =>
+        inv.invoiceNo?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        inv.clientName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        inv.profileName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        inv.serialNo?.includes(searchQuery) ||
+        inv.invoiceStatus?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    const formatDate = (dateStr) => {
+        if (!dateStr) return 'N/A';
+        const d = new Date(dateStr);
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = String(d.getFullYear()).slice(-2);
+        return `${day}-${month}-${year}`;
+    };
+
+    const formatCurrency = (val) => {
+        const num = parseFloat(val) || 0;
+        return num.toLocaleString('en-IN', {
+            maximumFractionDigits: 2,
+            minimumFractionDigits: num % 1 === 0 ? 0 : 2
+        });
+    };
+
+    return (
+        <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc', fontFamily: "'Inter', sans-serif" }}>
+            <Sidebar activePage="invoices" />
+
+            <main style={{ flex: 1, overflow: 'auto' }} className="animate-fade-in-up main-content">
+                <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', padding: '1.25rem 2rem' }} className="invoices-header">
+                    <div>
+                        <h1 style={{ fontSize: '1.875rem', fontWeight: 800, color: '#0f172a', marginBottom: '0.25rem' }}>Invoice</h1>
+                        <p style={{ color: '#64748b', fontSize: '0.875rem' }} className="header-subtext">Comprehensive overview of all your business invoices</p>
+                    </div>
+                    <button
+                        onClick={() => navigate('/add-invoice')}
+                        style={{ 
+                            display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.625rem 1.25rem', 
+                            background: '#2563eb', color: 'white', border: 'none', borderRadius: '10px', 
+                            fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 6px -1px rgba(37, 99, 235, 0.2)',
+                            whiteSpace: 'nowrap'
+                        }}
+                        className="add-invoice-btn"
+                    >
+                        <Plus style={{ width: '18px' }} /> <span>Add New Invoice</span>
+                    </button>
+                </header>
+
+                {/* Search Bar */}
+                <div style={{ padding: '0 2rem' }} className="content-container">
+                    <div style={{ 
+                        background: 'white', padding: '1rem 1.25rem', borderRadius: '12px', 
+                        border: '1px solid #e2e8f0', marginBottom: '1.5rem', 
+                        display: 'flex', alignItems: 'center', gap: '0.75rem' 
+                    }}>
+                        <Search style={{ color: '#94a3b8', width: '18px' }} />
+                        <input
+                            type="text"
+                            placeholder="Search by invoice no, client or business name..."
+                            aria-label="Search by invoice no, client or business name"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            style={{ flex: 1, border: 'none', outline: 'none', fontSize: '0.938rem', color: '#0f172a' }}
+                        />
+                    </div>
+                </div>
+                {/* Invoices List */}
+                <div style={{ background: 'white', borderRadius: '16px', border: '1px solid #e2e8f0', overflowX: 'auto' }}>
+                    <table style={{ minWidth: '850px', width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                        <thead>
+                            <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                                <th style={{ padding: '1rem 1.5rem', color: '#64748b', fontWeight: 600, fontSize: '0.875rem' }}>Serial & Invoice</th>
+                                <th style={{ padding: '1rem 1.5rem', color: '#64748b', fontWeight: 600, fontSize: '0.875rem' }}>Billed Details</th>
+                                <th style={{ padding: '1rem 1.5rem', color: '#64748b', fontWeight: 600, fontSize: '0.875rem' }}>Dates</th>
+                                <th style={{ padding: '1rem 1.5rem', color: '#64748b', fontWeight: 600, fontSize: '0.875rem', textAlign: 'right' }}>Amount</th>
+                                <th style={{ padding: '1rem 1.5rem', color: '#64748b', fontWeight: 600, fontSize: '0.875rem' }}>Inv Status</th>
+                                <th style={{ padding: '1rem 1.5rem', color: '#64748b', fontWeight: 600, fontSize: '0.875rem' }}>GST Status</th>
+                                <th style={{ padding: '1rem 1.5rem', color: '#64748b', fontWeight: 600, fontSize: '0.875rem' }}>Acc Status</th>
+                                <th style={{ padding: '1rem 1.5rem', color: '#64748b', fontWeight: 600, fontSize: '0.875rem' }}>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {loading ? (
+                                <tr>
+                                    <td colSpan="8" style={{ padding: '4rem', textAlign: 'center', color: '#94a3b8' }}>
+                                        <p>Loading invoices...</p>
+                                    </td>
+                                </tr>
+                            ) : filteredInvoices.length > 0 ? filteredInvoices.map((inv) => (
+                                <tr key={inv.serialNo} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                    <td style={{ padding: '1.25rem 1.5rem' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                                            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#6366f1' }}>#{inv.serialNo}</span>
+                                            <span style={{ fontWeight: 800, color: '#0f172a' }}>{inv.invoiceNo}</span>
+                                        </div>
+                                    </td>
+                                    <td style={{ padding: '1.25rem 1.5rem' }}>
+                                        <div style={{ fontSize: '0.875rem' }}>
+                                            <div style={{ color: '#334155', fontWeight: 600 }}>{inv.clientName}</div>
+                                            <div style={{ color: '#94a3b8', fontSize: '0.75rem' }}>from {inv.profileName}</div>
+                                        </div>
+                                    </td>
+                                    <td style={{ padding: '1.25rem 1.5rem' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.125rem' }}>
+                                            <div style={{ fontSize: '0.875rem', color: '#334155', fontWeight: 600 }}>
+                                                {formatDate(inv.invoiceDate)}
+                                            </div>
+                                            {inv.dueDate && (
+                                                <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 400, whiteSpace: 'nowrap' }}>
+                                                    due : {formatDate(inv.dueDate)}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </td>
+                                    <td style={{ padding: '1.25rem 1.5rem', textAlign: 'right' }}>
+                                        <div style={{ fontWeight: 800, color: '#0f172a', fontSize: '1.125rem' }}>
+                                            ₹{formatCurrency(inv.total)}
+                                        </div>
+                                    </td>
+                                    <td style={{ padding: '1.25rem 1.5rem' }}>
+                                        <select 
+                                            value={inv.invoiceStatus || 'Pending'}
+                                            onChange={(e) => handleStatusUpdate(inv.serialNo, 'invoiceStatus', e.target.value)}
+                                            aria-label={`Invoice status for #${inv.serialNo}`}
+                                            style={{ 
+                                                padding: '0.4rem 0.6rem', 
+                                                borderRadius: '8px', 
+                                                border: '1px solid #e2e8f0', 
+                                                fontSize: '0.75rem', 
+                                                fontWeight: 600,
+                                                background: inv.invoiceStatus === 'Approved' ? '#f0fdf4' : inv.invoiceStatus === 'Rejected' ? '#fef2f2' : inv.invoiceStatus === 'Archived' ? '#f1f5f9' : '#fff7ed',
+                                                color: inv.invoiceStatus === 'Approved' ? '#16a34a' : inv.invoiceStatus === 'Rejected' ? '#ef4444' : inv.invoiceStatus === 'Archived' ? '#64748b' : '#ea580c',
+                                                cursor: 'pointer',
+                                                outline: 'none'
+                                            }}
+                                        >
+                                            <option value="Pending">Pending</option>
+                                            <option value="Approved">Approved</option>
+                                            <option value="Rejected">Rejected</option>
+                                            <option value="Archived">Archived</option>
+                                        </select>
+                                    </td>
+                                    <td style={{ padding: '1.25rem 1.5rem' }}>
+                                        <select 
+                                            value={inv.gstStatus || 'Not Filed'}
+                                            onChange={(e) => handleStatusUpdate(inv.serialNo, 'gstStatus', e.target.value)}
+                                            aria-label={`GST status for #${inv.serialNo}`}
+                                            style={{ 
+                                                padding: '0.4rem 0.6rem', 
+                                                borderRadius: '8px', 
+                                                border: '1px solid #e2e8f0', 
+                                                fontSize: '0.75rem', 
+                                                fontWeight: 600,
+                                                background: inv.gstStatus === 'Filed' ? '#f0fdf4' : '#fef2f2',
+                                                color: inv.gstStatus === 'Filed' ? '#16a34a' : '#ef4444',
+                                                cursor: 'pointer',
+                                                outline: 'none'
+                                            }}
+                                        >
+                                            <option value="Filed">Filed</option>
+                                            <option value="Not Filed">Not Filed</option>
+                                        </select>
+                                    </td>
+                                    <td style={{ padding: '1.25rem 1.5rem' }}>
+                                        <select 
+                                            value={inv.accountsStatus || 'Fund Pending'}
+                                            onChange={(e) => handleStatusUpdate(inv.serialNo, 'accountsStatus', e.target.value)}
+                                            aria-label={`Accounts status for #${inv.serialNo}`}
+                                            style={{ 
+                                                padding: '0.4rem 0.6rem', 
+                                                borderRadius: '8px', 
+                                                border: '1px solid #e2e8f0', 
+                                                fontSize: '0.75rem', 
+                                                fontWeight: 600,
+                                                background: inv.accountsStatus === 'Fund Received' ? '#f0fdf4' : '#fff7ed',
+                                                color: inv.accountsStatus === 'Fund Received' ? '#16a34a' : '#ea580c',
+                                                cursor: 'pointer',
+                                                outline: 'none'
+                                            }}
+                                        >
+                                            <option value="Fund Received">Fund Received</option>
+                                            <option value="Fund Pending">Fund Pending</option>
+                                        </select>
+                                    </td>
+                                    <td style={{ padding: '1.25rem 1.5rem' }}>
+                                        <div style={{ display: 'flex', gap: '0.75rem' }}>
+                                            <button
+                                                onClick={() => navigate(`/edit-invoice/${inv.serialNo}`)}
+                                                aria-label={`Edit Invoice #${inv.serialNo}`}
+                                                style={{ background: '#f0f9ff', border: 'none', padding: '0.5rem', borderRadius: '8px', cursor: 'pointer', color: '#0ea5e9' }}
+                                                title="Edit Invoice"
+                                            >
+                                                <Pencil style={{ width: '18px' }} />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDelete(inv.serialNo)}
+                                                aria-label={`Delete Invoice #${inv.serialNo}`}
+                                                style={{ background: '#fef2f2', border: 'none', padding: '0.5rem', borderRadius: '8px', cursor: 'pointer', color: '#ef4444' }}
+                                                title="Delete Invoice"
+                                            >
+                                                <Trash2 style={{ width: '18px' }} />
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            )) : (
+                                <tr>
+                                    <td colSpan="8" style={{ padding: '4rem', textAlign: 'center', color: '#94a3b8' }}>
+                                        <FileText style={{ width: '48px', height: '48px', margin: '0 auto 1rem', opacity: 0.2 }} />
+                                        <p>No invoices found</p>
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </main>
+
+            <style>{`
+                @keyframes fade-in-up {
+                    from { opacity: 0; transform: translateY(10px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                .animate-fade-in-up {
+                    animation: fade-in-up 0.4s ease-out;
+                }
+                @media (max-width: 1024px) {
+                    .main-content {
+                        padding-top: 60px;
+                    }
+                    .invoices-header {
+                        padding: 1.5rem !important;
+                        margin-bottom: 1.5rem !important;
+                    }
+                    .content-container {
+                        padding: 1rem !important;
+                    }
+                }
+                @media (max-width: 640px) {
+                    .add-invoice-btn span {
+                        display: none;
+                    }
+                    .add-invoice-btn {
+                        padding: 0.5rem 0.75rem !important;
+                    }
+                    .header-subtext {
+                        display: none;
+                    }
+                }
+            `}</style>
+        </div>
+    );
+};
+
+export default Invoices;

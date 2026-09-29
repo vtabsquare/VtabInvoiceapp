@@ -1,0 +1,1209 @@
+import React, { useState, useEffect } from 'react';
+import {
+    Plus, Search, FileText, Calendar, Building2, User,
+    X, Check, ChevronDown, Trash2, Download, Printer,
+    Briefcase, Mail, Phone, MapPin, IndianRupee, ArrowLeft
+} from 'lucide-react';
+import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
+import Sidebar from '../components/Sidebar';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import ClientModal from '../components/ClientModal';
+import API_BASE_URL from '../api';
+import { numberToWords } from '../utils/numberToWords';
+
+const AddInvoice = () => {
+    const navigate = useNavigate();
+
+    // Data States
+    const [profiles, setProfiles] = useState([]);
+    const [clients, setClients] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
+    const [showClientModal, setShowClientModal] = useState(false);
+    const [lastSerial, setLastSerial] = useState('');
+    const [allInvoices, setAllInvoices] = useState([]); // Store all invoices for date validation
+
+    const calculateNextInvoiceNo = (invoices) => {
+        if (!invoices || invoices.length === 0) return '0001';
+
+        // Extract and parse invoice numbers
+        const usedNos = invoices
+            .map(inv => parseInt(inv.invoiceNo))
+            .filter(n => !isNaN(n) && n > 0 && n < 10000) // Only consider 1-9999 for sequence
+            .sort((a, b) => a - b);
+
+        if (usedNos.length === 0) return '0001';
+
+        // Find the first gap
+        let nextNo = 1;
+        for (let i = 0; i < usedNos.length; i++) {
+            if (usedNos[i] === nextNo) {
+                nextNo++;
+            } else if (usedNos[i] > nextNo) {
+                break; // Found a gap
+            }
+        }
+
+        return nextNo.toString().padStart(4, '0');
+    };
+
+    const generateInvoiceNo = (invoices = []) => {
+        return calculateNextInvoiceNo(invoices);
+    };
+
+    // Form State
+    const [invoiceData, setInvoiceData] = useState({
+        invoiceNo: '0001', // Initial placeholder, will be updated by fetch
+        invoiceDate: new Date().toISOString().split('T')[0],
+        dueDate: new Date().toISOString().split('T')[0],
+        selectedProfile: null,
+        selectedClient: null,
+        signature: null,
+        accountHolderName: '',
+        accountNo: '',
+        confirmAccountNo: '',
+        branchLocation: '',
+        ifscCode: '',
+        accountType: '',
+        bankName: ''
+    });
+
+    const [lineItems, setLineItems] = useState([
+        { id: Date.now(), item: '', description: '', quantity: 1, amount: 0, sgstRate: 9, cgstRate: 9, sgst: 0, cgst: 0, tax: 0, total: 0 }
+    ]);
+
+    useEffect(() => {
+        fetchInitialData();
+    }, []);
+
+    const fetchInitialData = async (selectClientSerial = null) => {
+        try {
+            const [profRes, clientRes, invoiceRes] = await Promise.all([
+                axios.get(`${API_BASE_URL}/profiles`),
+                axios.get(`${API_BASE_URL}/clients`),
+                axios.get(`${API_BASE_URL}/invoices`)
+            ]);
+            setProfiles(profRes.data);
+            setClients(clientRes.data);
+            setAllInvoices(invoiceRes.data);
+
+            // Calculate next invoice no
+            const nextNo = calculateNextInvoiceNo(invoiceRes.data);
+            setInvoiceData(prev => ({ ...prev, invoiceNo: nextNo }));
+
+            if (selectClientSerial) {
+                const newClient = clientRes.data.find(c => c.serialNo === selectClientSerial);
+                if (newClient) {
+                    setInvoiceData(prev => ({ ...prev, selectedClient: newClient }));
+                }
+            }
+        } catch (err) {
+            console.error("Error fetching data:", err);
+        }
+    };
+
+    const handleInvoiceChange = (e) => {
+        const { name, value } = e.target;
+
+        // Alphabets only for branchLocation, accountHolderName and bankName
+        if ((name === 'branchLocation' || name === 'accountHolderName' || name === 'bankName') && value !== '' && !/^[a-zA-Z\s]*$/.test(value)) {
+            return;
+        }
+
+        if (name === 'invoiceDate') {
+            // Update invoiceDate AND potentially dueDate
+            setInvoiceData(prev => ({
+                ...prev,
+                invoiceDate: value,
+                dueDate: (!prev.dueDate || prev.dueDate < value) ? value : prev.dueDate
+            }));
+            return;
+        }
+
+        setInvoiceData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const addLineItem = () => {
+        setLineItems([...lineItems, { id: Date.now(), item: '', description: '', quantity: 1, amount: 0, sgstRate: 9, cgstRate: 9, sgst: 0, cgst: 0, tax: 0, total: 0 }]);
+    };
+
+    const removeLineItem = (itemId) => {
+        if (lineItems.length > 1) {
+            setLineItems(lineItems.filter(i => i.id !== itemId));
+        }
+    };
+
+    const handleItemChange = (itemId, field, value) => {
+        const updatedItems = lineItems.map(item => {
+            if (item.id === itemId) {
+                const updatedItem = { ...item, [field]: value };
+
+                const qty = parseFloat(field === 'quantity' ? value : updatedItem.quantity) || 0;
+                const amt = parseFloat(field === 'amount' ? value : updatedItem.amount) || 0;
+                const sRate = parseFloat(field === 'sgstRate' ? value : updatedItem.sgstRate) || 0;
+                const cRate = parseFloat(field === 'cgstRate' ? value : updatedItem.cgstRate) || 0;
+                const baseAmount = qty * amt;
+
+                const sgst = baseAmount * (sRate / 100);
+                const cgst = baseAmount * (cRate / 100);
+                const tax = baseAmount * 0.10;
+                const total = baseAmount + sgst + cgst;
+
+                return { ...updatedItem, sgst, cgst, tax, total };
+            }
+            return item;
+        });
+        setLineItems(updatedItems);
+    };
+
+    const calculateTotals = () => {
+        let subtotal = 0;
+        let sgst = 0;
+        let cgst = 0;
+        let tax = 0;
+        let total = 0;
+
+        lineItems.forEach(i => {
+            const qty = parseFloat(i.quantity) || 0;
+            const amt = parseFloat(i.amount) || 0;
+            const base = qty * amt;
+            subtotal += base;
+            sgst += i.sgst;
+            cgst += i.cgst;
+            tax += i.tax;
+            total += i.total;
+        });
+
+        return { subtotal, sgst, cgst, tax, total };
+    };
+
+    const totals = calculateTotals();
+
+    const formatCurrency = (val) => {
+        const num = parseFloat(val) || 0;
+        return num.toLocaleString('en-IN', {
+            maximumFractionDigits: 2,
+            minimumFractionDigits: num % 1 === 0 ? 0 : 2
+        });
+    };
+
+    const handleSignatureUpload = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                const img = new Image();
+                img.src = reader.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 300; // Small size is enough for signature
+                    const MAX_HEIGHT = 150;
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > MAX_WIDTH) {
+                        height *= MAX_WIDTH / width;
+                        width = MAX_WIDTH;
+                    }
+                    if (height > MAX_HEIGHT) {
+                        width *= MAX_HEIGHT / height;
+                        height = MAX_HEIGHT;
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    // Resize and compress
+                    const resizedDataUrl = canvas.toDataURL('image/png', 0.6);
+                    setInvoiceData(prev => ({ ...prev, signature: resizedDataUrl }));
+                };
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const generatePDF = async (invoice, items, finalTotals, logoBase64) => {
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.width;
+        const pageHeight = doc.internal.pageSize.height;
+        const indigoColor = [79, 70, 229]; // Indigo-600
+        const lavenderBg = [240, 240, 255];
+        const borderColor = [220, 220, 220];
+        const sigHeightNeeded = 45; // Approx height for signature block
+        const sigSpaceLimit = pageHeight - sigHeightNeeded - 25; // Space reserved for signature
+
+        const drawPageElements = () => {
+            // --- BORDER around the entire page ---
+            doc.setDrawColor(200, 200, 200);
+            doc.setLineWidth(0.2);
+            doc.rect(5, 5, pageWidth - 10, pageHeight - 10);
+
+            // --- FOOTER ---
+            const prof = invoice.selectedProfile;
+            doc.setFontSize(7);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(100, 116, 139);
+            doc.setDrawColor(230, 230, 230);
+            doc.line(10, pageHeight - 15, pageWidth - 10, pageHeight - 15);
+            doc.text(
+                `${prof.companyName} | GST: ${prof.gstNo || 'N/A'} | PAN: ${prof.taxNo || 'N/A'} | Email: ${prof.email || ''}`,
+                pageWidth / 2, pageHeight - 10, { align: "center" }
+            );
+
+            // --- REPEATING HEADER ---
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(32);
+            doc.setTextColor(indigoColor[0], indigoColor[1], indigoColor[2]);
+            doc.text("Invoice", 12, 25);
+
+            if (logoBase64) {
+                const logoX = pageWidth - 40;
+                const logoY = 10;
+                doc.addImage(logoBase64, 'PNG', logoX, logoY, 25, 25);
+
+                // Company name below logo
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(8);
+                doc.setTextColor(0, 0, 0);
+                doc.text(
+                    "VTAB Square Private Limited",
+                    logoX + 12.5,
+                    logoY + 32,
+                    { align: "center" }
+                );
+            }
+
+            const startX = 10;
+            let hy = 32;
+            const rowHeight = 8;
+            const col1W = 35;
+            const col2W = 40;
+
+            doc.setFontSize(8.5);
+            doc.setLineWidth(0.1);
+            doc.setDrawColor(220, 220, 220);
+
+            const details = [
+                ['Invoice No #', invoice.invoiceNo],
+                ['Invoice Date', new Date(invoice.invoiceDate).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })],
+                ['Due Date', invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }) : '-']
+            ];
+
+            details.forEach(row => {
+                doc.setFillColor(248, 250, 252);
+                doc.rect(startX, hy, col1W, rowHeight, 'FD');
+                doc.setFillColor(255, 255, 255);
+                doc.rect(startX + col1W, hy, col2W, rowHeight, 'FD');
+
+                doc.setTextColor(0, 0, 0);
+                doc.setFont("helvetica", "bold");
+                doc.text(row[0], startX + 3, hy + 5.5);
+
+                doc.setFont("helvetica", "bold");
+                doc.text(row[1], startX + col1W + 3, hy + 5.5);
+
+                hy += rowHeight;
+            });
+        };
+
+        // Draw page elements on first page
+        drawPageElements();
+
+        const profile = invoice.selectedProfile;
+        const client = invoice.selectedClient;
+        let currentY = 62;
+
+        // Helper to load an icon as base64 from /icons/ folder
+        const loadIcon = (iconName) => new Promise((resolve) => {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width; canvas.height = img.height;
+                canvas.getContext('2d').drawImage(img, 0, 0);
+                resolve(canvas.toDataURL('image/png'));
+            };
+            img.onerror = () => resolve(null);
+            img.src = `${window.location.origin}/icons/${iconName}.png?v=${Date.now()}`;
+        });
+
+        // Load all icons in parallel
+        const [iconUser, iconLocation, iconMail, iconPhone, iconCompany, iconGstin, iconPan] =
+            await Promise.all(['user', 'location', 'mail', 'phone', 'company', 'gstin', 'pan'].map(loadIcon));
+
+        // --- MANUAL BILLED BY / BILLED TO WITH ICONS ---
+        const colW = (pageWidth - 20) / 2; // each column width
+        const leftX = 10;  // left column start
+        const rightX = 10 + colW; // right column start
+        const iconSize = 3.0; // icon size in mm
+        const iconTextGap = 1.0; // gap between icon and text
+        const textStartOffset = iconSize + iconTextGap; // text x offset from column start + padding
+        const lineH = 3.8; // normal line height
+        const rowGap = 1.0; // gap between rows
+
+        // measure box height dynamically
+        const billedFs = 8;
+        doc.setFontSize(billedFs);
+        const innerW = colW - 8 - textStartOffset; // usable text width inside column
+
+        const profileAddr = `${profile.address1 || ''}${profile.city ? ', ' + profile.city : ''}${profile.state ? ', ' + profile.state : ''}${profile.pincode ? ' ' + profile.pincode : ''}`;
+        const clientAddr = `${client.address1 || ''}${client.address2 ? ', ' + client.address2 : ''}${client.city ? ', ' + client.city : ''}${client.state ? ', ' + client.state : ''}${client.pincode ? ' - ' + client.pincode : ''}`;
+
+        const byAddrLines = doc.splitTextToSize(profileAddr, innerW);
+        const toAddrLines = doc.splitTextToSize(clientAddr, innerW);
+
+        const byRows = [
+            { icon: iconUser, lines: doc.splitTextToSize(profile.companyName || '', innerW) },
+            { icon: iconLocation, lines: byAddrLines },
+            { icon: iconGstin, lines: [`GSTIN: ${profile.gstNo || 'N/A'}`] },
+            { icon: iconPan, lines: [`TAN: ${profile.taxNo || 'N/A'}`] },
+            { icon: iconMail, lines: [`${profile.email || ''}`] },
+            { icon: iconPhone, lines: [`${profile.contactNo || ''}`] },
+        ];
+        const toRows = [
+            { icon: iconCompany, lines: doc.splitTextToSize(client.name || '', innerW) },
+            { icon: iconLocation, lines: toAddrLines },
+            { icon: iconGstin, lines: [`GSTIN: ${client.gstNo || 'N/A'}`] },
+            { icon: iconPan, lines: [`TAN: ${client.taxNo || 'N/A'}`] },
+            { icon: iconMail, lines: [`${client.email || ''}`] },
+            { icon: iconPhone, lines: [`${client.contact || ''}`] },
+        ];
+
+        const calcColHeight = (rows) => rows.reduce((h, r) => h + Math.max(iconSize, r.lines.length * lineH) + rowGap, 0);
+        const byH = calcColHeight(byRows);
+        const toH = calcColHeight(toRows);
+        const boxH = Math.max(byH, toH) + 20; // 10 header + 10 padding
+
+        const contentStartY = currentY + 12;
+
+        // Draw header rectangles (Light Lavender color from Image)
+        doc.setFillColor(lavenderBg[0], lavenderBg[1], lavenderBg[2]);
+        doc.rect(leftX, currentY, pageWidth - 20, 10, 'F');
+
+        // Draw content rectangles (White background/Gray Mixture for details)
+        doc.setFillColor(252, 252, 252);
+        doc.setDrawColor(220, 220, 220);
+        doc.setLineWidth(0.2);
+        doc.rect(leftX, currentY + 10, pageWidth - 20, boxH - 10, 'FD');
+
+        // Divider between columns
+        doc.setDrawColor(210, 210, 230);
+        doc.line(rightX, currentY + 2, rightX, currentY + boxH - 2);
+
+        // Headers (Purple text on light background)
+        doc.setFontSize(13);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(indigoColor[0], indigoColor[1], indigoColor[2]);
+        doc.text("Billed By", leftX + 4, currentY + 7);
+        doc.text("Billed To", rightX + 4, currentY + 7);
+
+        // Draw rows helper
+        const drawRows = (rows, startX, startY) => {
+            let y = startY;
+            rows.forEach(({ icon, lines }) => {
+                const rowH = Math.max(iconSize, lines.length * lineH);
+                if (icon) {
+                    // Align icon top with text top
+                    doc.addImage(icon, 'PNG', startX + 3, y, iconSize, iconSize);
+                }
+                doc.setFontSize(billedFs);
+                doc.setFont("helvetica", "normal");
+                doc.setTextColor(50, 50, 50);
+                lines.forEach((line, i) => {
+                    // Position 2.8mm from row start matches icon visual center better
+                    doc.text(line, startX + 3 + textStartOffset, y + (i * lineH) + 2.8);
+                });
+                y += rowH + rowGap;
+            });
+        };
+
+        const contentStartYActual = currentY + 12;
+        drawRows(byRows, leftX, contentStartYActual);
+        drawRows(toRows, rightX, contentStartYActual);
+
+        currentY = currentY + boxH + 8;
+
+        // --- LINE ITEMS TABLE ---
+        const tableRows = items.map(item => [
+            { content: item.item, styles: { fontStyle: 'bold' } },
+            { content: item.description || '' },
+            { content: String(item.quantity), styles: { halign: 'center' } },
+            { content: formatCurrency(item.amount), styles: { halign: 'right' } },
+            { content: `${item.sgstRate || 9}%`, styles: { halign: 'center' } },
+            { content: `${item.cgstRate || 9}%`, styles: { halign: 'center' } },
+            { content: `10%`, styles: { halign: 'center' } },
+            { content: formatCurrency(item.total), styles: { halign: 'right', fontStyle: 'bold' } },
+        ]);
+
+        autoTable(doc, {
+            startY: currentY,
+            head: [['ITEM', 'DESCRIPTION', 'QTY', 'UNIT PRICE', 'SGST', 'CGST', 'TAX (10%)', 'AMOUNT']],
+            body: tableRows,
+            theme: 'grid',
+            headStyles: { fillColor: [241, 245, 249], textColor: [0, 0, 0], fontStyle: 'bold', fontSize: 6, lineWidth: 0.1 },
+            styles: { fontSize: 9.5, cellPadding: 3, lineColor: [220, 220, 220], lineWidth: 0.1 },
+            alternateRowStyles: { fillColor: [252, 252, 252] },
+            columnStyles: {
+                0: { cellWidth: 35 },
+                1: { cellWidth: 'auto' },
+                2: { halign: 'center', cellWidth: 15 },
+                3: { halign: 'right', cellWidth: 20 },
+                4: { halign: 'center', cellWidth: 12 },
+                5: { halign: 'center', cellWidth: 12 },
+                6: { halign: 'center', cellWidth: 18 },
+                7: { halign: 'right', cellWidth: 20 },
+            },
+            margin: { top: 62, left: 10, right: 10 },
+            didDrawPage: () => {
+                drawPageElements();
+            }
+        });
+        currentY = doc.lastAutoTable.finalY + 6;
+
+        const totalAmount = finalTotals.subtotal + finalTotals.sgst + finalTotals.cgst;
+
+        // --- AMOUNT IN WORDS (Left side of totals) ---
+        const amountInWords = numberToWords(Math.round(totalAmount));
+        doc.setFontSize(9.5);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(50, 50, 50);
+        doc.text("Amount in Words:", 12, currentY + 10);
+        doc.setFont("helvetica", "normal");
+        const splitWords = doc.splitTextToSize(amountInWords, pageWidth - 130);
+        doc.text(splitWords, 12, currentY + 14);
+
+        // Check if we need a new page for totals + bank
+        if (currentY > pageHeight - 80) {
+            doc.addPage();
+            drawPageElements();
+            currentY = 62;
+        }
+
+        // --- TOTALS TABLE ---
+        autoTable(doc, {
+            startY: currentY,
+            body: [
+                ['TOTAL (INR):', { content: formatCurrency(finalTotals.subtotal), styles: { halign: 'right' } }],
+                ['SGST:', { content: formatCurrency(finalTotals.sgst), styles: { halign: 'right' } }],
+                ['CGST:', { content: formatCurrency(finalTotals.cgst), styles: { halign: 'right' } }],
+                ['Tax (10%) Less:', { content: formatCurrency(finalTotals.tax), styles: { halign: 'right', textColor: [150, 0, 0] } }],
+                [
+                    { content: 'TOTAL DUE (INR)', styles: { fontStyle: 'bold', fillColor: [0, 0, 0], textColor: [255, 255, 255] } },
+                    { content: formatCurrency(totalAmount), styles: { halign: 'right', fontStyle: 'bold', fillColor: [0, 0, 0], textColor: [255, 255, 255] } }
+                ],
+            ],
+            theme: 'grid',
+            styles: { fontSize: 9, cellPadding: 3.5, lineColor: [220, 220, 220], lineWidth: 0.1 },
+            columnStyles: {
+                0: { fontStyle: 'bold', fillColor: [248, 250, 252], textColor: [0, 0, 0], cellWidth: 60 },
+                1: { textColor: [0, 0, 0], cellWidth: 40 },
+            },
+            tableWidth: 100,
+            margin: { top: 62, left: pageWidth - 110, right: 10 },
+            didDrawPage: () => { drawPageElements(); }
+        });
+        currentY = doc.lastAutoTable.finalY + 8;
+
+        // --- BANK DETAILS TABLE ---
+        if (invoice.accountNo) {
+            if (currentY > pageHeight - 65) {
+                doc.addPage();
+                drawPageElements();
+                currentY = 62;
+            }
+            doc.setFontSize(9);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(0, 0, 0);
+            doc.text("BANK DETAILS", 10, currentY);
+            currentY += 4;
+
+            autoTable(doc, {
+                startY: currentY,
+                head: [['Account Name', 'Bank Name', 'Account No', 'IFSC Code', 'Branch']],
+                body: [
+                    [
+                        invoice.accountHolderName || 'N/A',
+                        invoice.bankName || 'N/A',
+                        invoice.accountNo,
+                        invoice.ifscCode || 'N/A',
+                        invoice.branchLocation || 'N/A'
+                    ]
+                ],
+                theme: 'grid',
+                headStyles: { fillColor: [248, 250, 252], textColor: [0, 0, 0], fontStyle: 'bold', fontSize: 8 },
+                styles: { fontSize: 8, cellPadding: 3, lineColor: [220, 220, 220], lineWidth: 0.1 },
+                margin: { top: 62, left: 10, right: 10 },
+                didDrawPage: () => { drawPageElements(); }
+            });
+            currentY = doc.lastAutoTable.finalY + 10;
+        }
+
+        // --- TERMS & CONDITIONS ---
+        const termsItems = [
+            { title: 'Payment Terms', text: 'Payment must be made within the due date mentioned in the invoice. Late payments may attract additional charges or interest as applicable.' },
+            { title: 'Scope of Work', text: 'The charges mentioned are based on the agreed scope of work and hours. Any additional work outside the agreed scope will be billed separately.' },
+            { title: 'Taxes', text: 'All applicable taxes (including GST) are included/excluded as specified in the invoice and are payable by the client.' },
+            { title: 'Non-Refund Policy', text: 'Payments once made are non-refundable after the completion of services or delivery of agreed milestones.' },
+            { title: 'Dispute Resolution', text: 'Any disputes arising from this invoice shall be subject to the jurisdiction of Coimbatore, Tamil Nadu.' },
+        ];
+
+        // Pre-calculate total height needed for the box
+        const innerTextWidth = pageWidth - 36;
+        let termsBoxHeight = 16; // accounts for: box-start-pad(6) + heading(5) + separator(5)
+        termsItems.forEach(term => {
+            const wrapped = doc.splitTextToSize(term.text, innerTextWidth);
+            termsBoxHeight += 3 + (wrapped.length * 3.8) + 2; // title(3) + body-lines + gap(2)
+        });
+        termsBoxHeight += 3; // bottom inner padding
+
+        // --- POSITIONING LOGIC FOR TERMS ---
+        let isNewPageForTerms = false;
+        if (currentY + termsBoxHeight > sigSpaceLimit) {
+            doc.addPage();
+            drawPageElements();
+            currentY = 62;
+            isNewPageForTerms = true;
+        }
+
+        if (isNewPageForTerms) {
+            // Case 1: If current page only has terms, center it vertically
+            const availableH = sigSpaceLimit - 62;
+            if (termsBoxHeight < availableH) {
+                currentY = 62 + (availableH - termsBoxHeight) / 2;
+            }
+        } else {
+            // Case 2: Mixed content page, fill the gap naturally
+            const availableGap = sigSpaceLimit - (currentY + termsBoxHeight);
+            if (availableGap > 20) {
+                // Centering slightly within the available gap
+                currentY += availableGap / 2;
+            } else {
+                currentY += 10; // Minimum margin from previous content
+            }
+        }
+
+        // Background box
+        doc.setFillColor(245, 245, 255);
+        doc.setDrawColor(210, 210, 245);
+        doc.setLineWidth(0.3);
+        doc.roundedRect(10, currentY, pageWidth - 20, termsBoxHeight, 3, 3, 'FD');
+
+        // Left accent bar
+        doc.setFillColor(79, 70, 229);
+        doc.rect(10, currentY, 2.5, termsBoxHeight, 'F');
+
+        currentY += 6;
+
+        // Heading
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(79, 70, 229);
+        doc.text("Terms & Conditions", 16, currentY);
+        currentY += 5;
+
+        // Separator line
+        doc.setDrawColor(79, 70, 229);
+        doc.setLineWidth(0.2);
+        doc.line(16, currentY, pageWidth - 14, currentY);
+        currentY += 5;
+
+        // Each term: bullet dot + bold title on own line, body text below
+        termsItems.forEach(term => {
+            if (currentY > pageHeight - 40) {
+                doc.addPage();
+                drawPageElements();
+                currentY = 62;
+            }
+            // Bullet dot
+            doc.setFillColor(79, 70, 229);
+            doc.circle(18, currentY - 1.2, 0.9, 'F');
+
+            // Title
+            doc.setFontSize(9.5);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(40, 40, 80);
+            doc.text(term.title, 21, currentY);
+            currentY += 3;
+
+            // Body text
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(80, 80, 100);
+            const wrappedText = doc.splitTextToSize(term.text, innerTextWidth);
+            doc.text(wrappedText, 21, currentY);
+            currentY += (wrappedText.length * 3.8) + 2;
+        });
+
+        currentY += 4;
+
+        // --- SIGNATURE SECTION ---
+        if (currentY > sigSpaceLimit) {
+            doc.addPage();
+            drawPageElements();
+        }
+
+        // Anchor signature explicitly to the bottom of the page
+        currentY = pageHeight - sigHeightNeeded - 20;
+
+        const sigX = pageWidth - 70;
+        doc.setFontSize(8);
+        doc.setTextColor(50, 50, 50);
+        doc.setFont("helvetica", "bold");
+        doc.text("Authorized Signatory", sigX, currentY);
+        currentY += 5;
+
+        if (invoice.signature) {
+            doc.addImage(invoice.signature, 'PNG', sigX, currentY, 40, 15);
+            currentY += 18;
+        } else {
+            currentY += 15;
+        }
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8);
+        doc.setTextColor(0, 0, 0);
+        doc.text("Vimala C.", sigX, currentY);
+        currentY += 4;
+        doc.setFont("helvetica", "normal");
+        doc.text("Managing Director", sigX, currentY);
+        currentY += 4;
+        doc.text("VTAB Square Pvt Ltd (Now Part of Siroco)", sigX, currentY);
+
+        const sanitize = (name) => name ? name.toUpperCase().replace(/\s+/g, '_') : 'UNKNOWN';
+        const fileName = `INVOICE_${invoice.invoiceNo}_${sanitize(profile.companyName)}_${sanitize(client.name)}.pdf`;
+        doc.save(fileName);
+    };
+
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+
+        // Mandatory Validations
+        if (!invoiceData.selectedProfile || !invoiceData.selectedClient) {
+            alert("Please select both Business Profile and Client");
+            return;
+        }
+        if (lineItems.some(i => !i.item || i.quantity <= 0 || i.amount <= 0)) {
+            alert("Please fill all line item details correctly (Name, Quantity, and Amount)");
+            return;
+        }
+
+        if (invoiceData.dueDate < invoiceData.invoiceDate) {
+            alert("Due Date cannot be earlier than Invoice Date.");
+            return;
+        }
+
+        if (!invoiceData.accountHolderName || !invoiceData.bankName || !invoiceData.accountNo || !invoiceData.branchLocation || !invoiceData.ifscCode || !invoiceData.accountType) {
+            alert("Account Holder Name, Bank Name, Account No, Branch Location, IFSC Code, and Account Type are mandatory fields.");
+            return;
+        }
+
+        const alphaRegex = /^[a-zA-Z\s]*$/;
+        if (!alphaRegex.test(invoiceData.accountHolderName)) {
+            alert("Account Holder Name must contain only alphabets.");
+            return;
+        }
+        if (!alphaRegex.test(invoiceData.bankName)) {
+            alert("Bank Name must contain only alphabets.");
+            return;
+        }
+        if (!alphaRegex.test(invoiceData.branchLocation)) {
+            alert("Branch Location must contain only alphabets.");
+            return;
+        }
+
+        if (invoiceData.accountNo && (invoiceData.accountNo.length < 9 || invoiceData.accountNo.length > 18)) {
+            alert("Account No must be between 9 and 18 digits.");
+            return;
+        }
+        if (invoiceData.accountNo !== invoiceData.confirmAccountNo) {
+            alert("Account No and Confirm Account No must match.");
+            return;
+        }
+        if (invoiceData.ifscCode && (invoiceData.ifscCode.length < 11 || invoiceData.ifscCode.length > 13)) {
+            alert("IFSC Code must be 11 to 13 characters.");
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const finalData = {
+                invoiceNo: invoiceData.invoiceNo,
+                invoiceDate: invoiceData.invoiceDate,
+                dueDate: invoiceData.dueDate,
+                profileName: invoiceData.selectedProfile.companyName,
+                clientName: invoiceData.selectedClient.name,
+                lineItems: lineItems.map(i => ({
+                    item: i.item,
+                    description: i.description,
+                    quantity: i.quantity,
+                    amount: i.amount,
+                    sgstRate: i.sgstRate,
+                    cgstRate: i.cgstRate
+                })),
+                signature: invoiceData.signature,
+                accountHolderName: invoiceData.accountHolderName,
+                bankName: invoiceData.bankName,
+                accountNo: invoiceData.accountNo,
+                confirmAccountNo: invoiceData.confirmAccountNo,
+                branchLocation: invoiceData.branchLocation,
+                ifscCode: invoiceData.ifscCode,
+                accountType: invoiceData.accountType
+            };
+
+            const res = await axios.post(`${API_BASE_URL}/invoices`, finalData);
+            setLastSerial(res.data.serialNo);
+
+            let logoBase64 = null;
+            try {
+                const logoUrl = `${window.location.origin}/vtab.jpeg?v=${Date.now()}`;
+                console.log("Loading logo from:", logoUrl);
+
+                logoBase64 = await new Promise((resolve) => {
+                    const img = new Image();
+                    img.crossOrigin = 'anonymous';
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0);
+                        const dataUrl = canvas.toDataURL('image/png');
+                        console.log("Logo loaded successfully as base64");
+                        resolve(dataUrl);
+                    };
+                    img.onerror = (err) => {
+                        console.error('Logo Image object load failed:', err);
+                        resolve(null);
+                    };
+                    img.src = logoUrl;
+                });
+            } catch (e) {
+                console.error("Failed to process logo image", e);
+            }
+
+            await generatePDF(invoiceData, lineItems, totals, logoBase64);
+            setShowSuccessModal(true);
+
+            // Need fresh invoices to calculate next number
+            const refreshRes = await axios.get(`${API_BASE_URL}/invoices`);
+            setAllInvoices(refreshRes.data);
+            const nextNoAfterSave = calculateNextInvoiceNo(refreshRes.data);
+
+            setInvoiceData(prev => ({
+                ...prev,
+                invoiceNo: nextNoAfterSave,
+                dueDate: '',
+                selectedClient: null,
+                accountHolderName: '',
+                bankName: '',
+                accountNo: '',
+                confirmAccountNo: '',
+                branchLocation: '',
+                ifscCode: '',
+                accountType: ''
+            }));
+            setLineItems([{ id: Date.now(), item: '', description: '', quantity: 1, amount: 0, sgstRate: 9, cgstRate: 9, sgst: 0, cgst: 0, tax: 0, total: 0 }]);
+
+            // Navigate securely to preview page
+            navigate('/invoice/preview/' + res.data.serialNo);
+
+        } catch (err) {
+            console.error("Save Invoice Error:", err);
+            alert(err.response?.data?.message || "Failed to save invoice");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Modified submit handler to navigate when successful
+    useEffect(() => {
+        if (showSuccessModal && lastSerial) {
+            navigate('/invoice/preview/' + lastSerial);
+        }
+    }, [showSuccessModal, lastSerial, navigate]);
+
+    return (
+        <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc', fontFamily: "'Inter', sans-serif" }}>
+            <Sidebar activePage="invoices" />
+
+            <main style={{ flex: 1, overflowY: 'auto' }} className="animate-fade-in-up main-content">
+                <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem', padding: '1.25rem 2rem' }} className="add-invoice-header">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                        <button
+                            onClick={() => navigate('/invoices')}
+                            aria-label="Back to invoices"
+                            style={{ background: 'white', border: '1px solid #e2e8f0', padding: '0.6rem', borderRadius: '12px', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        >
+                            <ArrowLeft size={20} />
+                        </button>
+                        <div>
+                            <h1 style={{ fontSize: '2rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                New Invoice <FileText style={{ color: '#6366f1', width: '28px' }} />
+                            </h1>
+                            <p style={{ color: '#64748b' }}>Create professional tax invoices with 9/9/10 tax rules</p>
+                        </div>
+                    </div>
+                </header>
+
+                <form onSubmit={handleSubmit} style={{ padding: '0 2rem' }} className="content-container">
+                    {/* Top Section */}
+                    <div style={{ background: 'white', padding: '2.5rem', borderRadius: '24px', border: '1px solid #e2e8f0', marginBottom: '2rem', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '2rem' }} className="invoice-meta-grid">
+                        <div>
+                            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#475569', marginBottom: '0.5rem' }}>Invoice No*</label>
+                            <input type="text" name="invoiceNo" value={invoiceData.invoiceNo} onChange={handleInvoiceChange} style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', outline: 'none', background: '#f8fafc', fontWeight: 700 }} required />
+                        </div>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#475569', marginBottom: '0.5rem' }}>Invoice Date*</label>
+                            <input
+                                type="date"
+                                name="invoiceDate"
+                                value={invoiceData.invoiceDate}
+                                onChange={handleInvoiceChange}
+                                style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', outline: 'none' }}
+                                required
+                            />
+                        </div>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#475569', marginBottom: '0.5rem' }}>Due Date*</label>
+                            <input type="date" name="dueDate" value={invoiceData.dueDate} onChange={handleInvoiceChange} min={invoiceData.invoiceDate} style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', outline: 'none' }} required />
+                        </div>
+                    </div>
+
+                    {/* Billed By & Billed To */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '2rem' }} className="billed-grid">
+                        {/* Billed By */}
+                        <div style={{ background: 'white', padding: '2rem', borderRadius: '24px', border: '1px solid #e2e8f0' }}>
+                            <h3 style={{ fontSize: '1.125rem', fontWeight: 800, color: '#0f172a', marginBottom: '1.5rem' }}>Billed By</h3>
+                            <select
+                                value={invoiceData.selectedProfile?.serialNo || ''}
+                                onChange={(e) => {
+                                    const prof = profiles.find(p => p.serialNo === e.target.value);
+                                    setInvoiceData(prev => ({ ...prev, selectedProfile: prof }));
+                                }}
+                                style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '1rem' }}
+                            >
+                                <option value="">Select a Business Profile</option>
+                                {profiles.map(p => <option key={p.serialNo} value={p.serialNo}>{p.companyName}</option>)}
+                            </select>
+                            {invoiceData.selectedProfile && (
+                                <div style={{ padding: '1rem', background: '#f8fafc', borderRadius: '12px', position: 'relative' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                                        <p style={{ fontWeight: 700, margin: 0 }}>{invoiceData.selectedProfile.companyName}</p>
+                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                            <button onClick={() => navigate('/profiles')} style={{ background: 'none', border: 'none', color: '#6366f1', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600 }}>Edit</button>
+                                        </div>
+                                    </div>
+                                    <p style={{ fontSize: '0.875rem', color: '#64748b', margin: 0 }}>{invoiceData.selectedProfile.city}, {invoiceData.selectedProfile.state}</p>
+                                    <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem' }}>GST: {invoiceData.selectedProfile.gstNo || 'N/A'}</p>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Billed To */}
+                        <div style={{ background: 'white', padding: '2rem', borderRadius: '24px', border: '1px solid #e2e8f0' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                                <h3 style={{ fontSize: '1.125rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>Billed To</h3>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowClientModal(true)}
+                                    style={{ background: '#f0f9ff', color: '#0ea5e9', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '8px', fontWeight: 700, fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                                >
+                                    <Plus style={{ width: '0.875rem' }} /> New Client
+                                </button>
+                            </div>
+                            <select
+                                value={invoiceData.selectedClient?.serialNo || ''}
+                                onChange={(e) => {
+                                    const client = clients.find(c => c.serialNo === e.target.value);
+                                    setInvoiceData(prev => ({ ...prev, selectedClient: client }));
+                                }}
+                                style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '1rem', outline: 'none' }}
+                                required
+                            >
+                                <option value="">Select a Client</option>
+                                {clients.map(c => <option key={c.serialNo} value={c.serialNo}>{c.name}</option>)}
+                            </select>
+                            {invoiceData.selectedClient && (
+                                <div style={{ padding: '1rem', background: '#f8fafc', borderRadius: '12px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                                        <p style={{ fontWeight: 700, margin: 0 }}>{invoiceData.selectedClient.name}</p>
+                                        <button onClick={() => navigate('/clients')} style={{ background: 'none', border: 'none', color: '#6366f1', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600 }}>Edit</button>
+                                    </div>
+                                    <p style={{ fontSize: '0.875rem', color: '#64748b', margin: 0 }}>{invoiceData.selectedClient.city}</p>
+                                    <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem' }}>Industry: {invoiceData.selectedClient.industry}</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Items Table */}
+                    <div style={{ background: 'white', borderRadius: '24px', border: '1px solid #e2e8f0', marginBottom: '2rem', overflowX: 'auto' }}>
+                        <table style={{ minWidth: '800px', width: '100%', borderCollapse: 'collapse' }}>
+                            <thead>
+                                <tr style={{ borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
+                                    <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 800, color: '#475569', width: '25%' }}>ITEM</th>
+                                    <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 800, color: '#475569', width: '25%' }}>DESCRIPTION</th>
+                                    <th style={{ padding: '1rem', textAlign: 'center', fontSize: '0.75rem', fontWeight: 800, color: '#475569' }}>QTY</th>
+                                    <th style={{ padding: '1rem', textAlign: 'right', fontSize: '0.75rem', fontWeight: 800, color: '#475569' }}>PRICE</th>
+                                    <th style={{ padding: '1rem', textAlign: 'center', fontSize: '0.75rem', fontWeight: 800, color: '#475569' }}>SGST %</th>
+                                    <th style={{ padding: '1rem', textAlign: 'center', fontSize: '0.75rem', fontWeight: 800, color: '#475569' }}>CGST %</th>
+                                    <th style={{ padding: '1rem', textAlign: 'right', fontSize: '0.75rem', fontWeight: 800, color: '#475569' }}>TOTAL</th>
+                                    <th style={{ padding: '1rem', width: '50px' }}></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {lineItems.map((item) => (
+                                    <tr key={item.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                        <td style={{ padding: '1rem' }}>
+                                            <input
+                                                type="text"
+                                                placeholder="Item Name"
+                                                value={item.item}
+                                                onChange={(e) => handleItemChange(item.id, 'item', e.target.value)}
+                                                style={{ width: '100%', border: 'none', outline: 'none', fontWeight: 600 }}
+                                            />
+                                        </td>
+                                        <td style={{ padding: '1rem' }}>
+                                            <input
+                                                type="text"
+                                                placeholder="Brief description"
+                                                value={item.description}
+                                                onChange={(e) => handleItemChange(item.id, 'description', e.target.value)}
+                                                style={{ width: '100%', border: 'none', outline: 'none', fontSize: '0.875rem' }}
+                                            />
+                                        </td>
+                                        <td style={{ padding: '1rem', textAlign: 'center' }}>
+                                            <input
+                                                type="number"
+                                                value={item.quantity}
+                                                onChange={(e) => handleItemChange(item.id, 'quantity', e.target.value)}
+                                                style={{ width: '50px', border: 'none', outline: 'none', textAlign: 'center', background: '#f8fafc', borderRadius: '6px', padding: '0.25rem' }}
+                                            />
+                                        </td>
+                                        <td style={{ padding: '1rem', textAlign: 'right' }}>
+                                            <input
+                                                type="number"
+                                                value={item.amount}
+                                                onChange={(e) => handleItemChange(item.id, 'amount', e.target.value)}
+                                                style={{ width: '80px', border: 'none', outline: 'none', textAlign: 'right', fontWeight: 600 }}
+                                            />
+                                        </td>
+                                        <td style={{ padding: '1rem', textAlign: 'center' }}>
+                                            <input
+                                                type="number"
+                                                value={item.sgstRate}
+                                                onChange={(e) => handleItemChange(item.id, 'sgstRate', e.target.value)}
+                                                style={{ width: '45px', border: 'none', outline: 'none', textAlign: 'center', background: '#f0f9ff', borderRadius: '6px', padding: '0.25rem', color: '#0369a1', fontWeight: 700 }}
+                                            />
+                                        </td>
+                                        <td style={{ padding: '1rem', textAlign: 'center' }}>
+                                            <input
+                                                type="number"
+                                                value={item.cgstRate}
+                                                onChange={(e) => handleItemChange(item.id, 'cgstRate', e.target.value)}
+                                                style={{ width: '45px', border: 'none', outline: 'none', textAlign: 'center', background: '#f0f9ff', borderRadius: '6px', padding: '0.25rem', color: '#0369a1', fontWeight: 700 }}
+                                            />
+                                        </td>
+                                        <td style={{ padding: '1rem', textAlign: 'right', fontWeight: 700 }}>
+                                            ₹{formatCurrency(item.total)}
+                                        </td>
+                                        <td style={{ padding: '1rem' }}>
+                                            <button type="button" onClick={() => removeLineItem(item.id)} aria-label="Remove line item" style={{ color: '#ef4444', border: 'none', background: 'none', cursor: 'pointer' }}>
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                        <div style={{ padding: '1rem 2rem', borderTop: '1px solid #f1f5f9' }}>
+                            <button
+                                type="button"
+                                onClick={addLineItem}
+                                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#6366f1', background: 'none', border: 'none', fontWeight: 700, cursor: 'pointer' }}
+                            >
+                                <Plus size={16} /> Add New Line
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Signature and Summary Grid */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 400px', gap: '2rem', marginBottom: '3rem' }}>
+                        {/* Signature Upload Area */}
+                        <div style={{ background: 'white', padding: '2rem', borderRadius: '24px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                            <h3 style={{ fontSize: '1.125rem', fontWeight: 800, color: '#0f172a', marginBottom: '1.5rem' }}>Authorized Signature</h3>
+
+                            {!invoiceData.signature ? (
+                                <div
+                                    onClick={() => document.getElementById('signatureInput').click()}
+                                    style={{ border: '2px dashed #e2e8f0', borderRadius: '16px', padding: '2rem', textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s', background: '#f8fafc' }}
+                                    onMouseOver={(e) => e.currentTarget.style.borderColor = '#6366f1'}
+                                    onMouseOut={(e) => e.currentTarget.style.borderColor = '#e2e8f0'}
+                                >
+                                    <div style={{ width: '40px', height: '40px', background: '#e0e7ff', color: '#6366f1', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
+                                        <Plus size={24} />
+                                    </div>
+                                    <p style={{ fontWeight: 700, color: '#475569', marginBottom: '0.25rem' }}>Upload Signature</p>
+                                    <p style={{ fontSize: '0.75rem', color: '#94a3b8' }}>PNG or JPG (Recommended: transparent background)</p>
+                                    <input
+                                        type="file"
+                                        id="signatureInput"
+                                        accept="image/*"
+                                        style={{ display: 'none' }}
+                                        onChange={handleSignatureUpload}
+                                    />
+                                </div>
+                            ) : (
+                                <div style={{ position: 'relative', background: '#f8fafc', borderRadius: '16px', padding: '1.5rem', textAlign: 'center' }}>
+                                    <img
+                                        src={invoiceData.signature}
+                                        alt="Signature"
+                                        style={{ maxHeight: '100px', maxWidth: '100%', objectFit: 'contain' }}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setInvoiceData(prev => ({ ...prev, signature: null }))}
+                                        aria-label="Remove signature"
+                                        style={{ position: 'absolute', top: '0.75rem', right: '0.75rem', background: '#fee2e2', color: '#ef4444', border: 'none', padding: '0.4rem', borderRadius: '8px', cursor: 'pointer' }}
+                                    >
+                                        <X size={16} />
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Summary Section */}
+                        <div style={{ background: 'white', padding: '2rem', borderRadius: '24px', border: '1px solid #e2e8f0' }} className="summary-box">
+                            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', marginBottom: '1.5rem' }}>Summary</h3>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem', color: '#64748b' }}>
+                                <span>Subtotal</span>
+                                <span style={{ fontWeight: 600, color: '#0f172a' }}>₹{formatCurrency(totals.subtotal)}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem', color: '#64748b' }}>
+                                <span>SGST</span>
+                                <span style={{ fontWeight: 600, color: '#0f172a' }}>₹{formatCurrency(totals.sgst)}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem', color: '#64748b' }}>
+                                <span>CGST</span>
+                                <span style={{ fontWeight: 600, color: '#0f172a' }}>₹{formatCurrency(totals.cgst)}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', color: '#64748b' }}>
+                                <span>Tax (10%) Less</span>
+                                <span style={{ fontWeight: 600, color: '#0f172a' }}>₹{formatCurrency(totals.tax)}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', background: '#2563eb', borderRadius: '12px', color: 'white' }}>
+                                <span style={{ fontWeight: 700 }}>Total Due (INR)</span>
+                                <span style={{ fontSize: '1.25rem', fontWeight: 900 }}>₹{formatCurrency(totals.subtotal + totals.sgst + totals.cgst)}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Bank Details Area */}
+                    <div style={{ background: 'white', padding: '2.5rem', borderRadius: '24px', border: '1px solid #e2e8f0', marginBottom: '3rem' }}>
+                        <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', marginBottom: '1.5rem' }}>Bank Details</h3>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '2rem' }} className="bank-details-grid">
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#475569', marginBottom: '0.5rem' }}>Account Holder Name</label>
+                                <input type="text" name="accountHolderName" value={invoiceData.accountHolderName} onChange={handleInvoiceChange} style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', outline: 'none' }} placeholder="e.g. Acme Corp" />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#475569', marginBottom: '0.5rem' }}>Bank Name*</label>
+                                <input type="text" name="bankName" value={invoiceData.bankName} onChange={handleInvoiceChange} style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', outline: 'none' }} placeholder="e.g. HDFC" required />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#475569', marginBottom: '0.5rem' }}>Account No*</label>
+                                <input type="password" name="accountNo" value={invoiceData.accountNo} onChange={handleInvoiceChange} style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', outline: 'none' }} placeholder="********" />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#475569', marginBottom: '0.5rem' }}>Confirm Account No*</label>
+                                <input type="text" name="confirmAccountNo" value={invoiceData.confirmAccountNo} onChange={handleInvoiceChange} style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', outline: 'none' }} placeholder="Account number" />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#475569', marginBottom: '0.5rem' }}>Branch Location</label>
+                                <input type="text" name="branchLocation" value={invoiceData.branchLocation} onChange={handleInvoiceChange} style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', outline: 'none' }} placeholder="City Name" />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#475569', marginBottom: '0.5rem' }}>IFSC Code</label>
+                                <input type="text" name="ifscCode" value={invoiceData.ifscCode} onChange={handleInvoiceChange} style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', outline: 'none' }} placeholder="IFSC" />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#475569', marginBottom: '0.5rem' }}>Account Type</label>
+                                <select name="accountType" value={invoiceData.accountType} onChange={handleInvoiceChange} style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', outline: 'none', background: 'white' }}>
+                                    <option value="">Select Account Type</option>
+                                    <option value="Savings">Savings</option>
+                                    <option value="Current">Current</option>
+                                    <option value="Salary">Salary</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', paddingBottom: '4rem' }} className="actions-footer">
+                        <button type="button" onClick={() => navigate('/invoices')} style={{ padding: '0.75rem 2rem', borderRadius: '12px', border: '1px solid #e2e8f0', background: 'white', fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
+                        <button type="submit" disabled={loading} style={{ padding: '0.75rem 3rem', borderRadius: '12px', border: 'none', background: '#2563eb', color: 'white', fontWeight: 700, cursor: 'pointer' }}>
+                            {loading ? 'Processing...' : 'Save & Preview'}
+                        </button>
+                    </div>
+                </form>
+            </main>
+            <style>{`
+                @media (max-width: 1024px) {
+                    .main-content {
+                        padding-top: 60px;
+                    }
+                    .add-invoice-header {
+                        padding: 1.5rem !important;
+                    }
+                    .content-container {
+                        padding: 0 1rem !important;
+                    }
+                }
+                @media (max-width: 768px) {
+                    .invoice-meta-grid, .billed-grid, .bank-details-grid {
+                        grid-template-columns: 1fr !important;
+                        gap: 1rem !important;
+                        padding: 1.5rem !important;
+                    }
+                    .summary-box {
+                        width: 100% !important;
+                    }
+                    .actions-footer {
+                        flex-direction: column-reverse;
+                    }
+                    .actions-footer button {
+                        width: 100%;
+                    }
+                }
+            `}</style>
+
+            {/* Success Modal */}
+            {showSuccessModal && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+                    <div className="animate-scale-in" style={{ background: 'white', width: '100%', maxWidth: '400px', borderRadius: '24px', padding: '3rem 2rem', textAlign: 'center' }}>
+                        <div style={{ width: '5rem', height: '5rem', background: '#dcfce7', color: '#16a34a', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
+                            <Check style={{ width: '2.5rem', height: '2.5rem', strokeWidth: 3 }} />
+                        </div>
+                        <h3 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0f172a', marginBottom: '0.5rem' }}>Invoice Ready!</h3>
+                        <p style={{ color: '#64748b', fontSize: '1.125rem', marginBottom: '1rem' }}>Saved successfully.</p>
+                        <p style={{ fontWeight: 700, color: '#0f172a', marginBottom: '2rem' }}>Serial #{lastSerial}</p>
+                        <button onClick={() => { setShowSuccessModal(false); navigate('/invoices'); }} style={{ width: '100%', padding: '1rem', borderRadius: '12px', border: 'none', background: '#6366f1', color: 'white', fontWeight: 700, cursor: 'pointer' }}>View All Invoices</button>
+                    </div>
+                </div>
+            )}
+            <ClientModal
+                isOpen={showClientModal}
+                onClose={() => setShowClientModal(false)}
+                onSuccess={(newClient) => {
+                    fetchInitialData(newClient.serialNo);
+                }}
+            />
+        </div>
+    );
+};
+
+export default AddInvoice;
