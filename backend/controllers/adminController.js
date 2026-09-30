@@ -15,6 +15,19 @@ const {
 const backupService = require("../utils/backupService");
 // Resend removed, migrated to Brevo API explicitly requested by user
 
+// Brevo strictly enforces that transactional emails come from an active verified sender.
+// Active verified senders in the VTAB Square Brevo account: vitabsquare@gmail.com, wsrvtabsquare@gmail.com
+const getBrevoSenderEmail = () => {
+    const verifiedSenders = ['vitabsquare@gmail.com', 'wsrvtabsquare@gmail.com'];
+    if (process.env.BREVO_SENDER_EMAIL && verifiedSenders.includes(process.env.BREVO_SENDER_EMAIL.trim().toLowerCase())) {
+        return process.env.BREVO_SENDER_EMAIL.trim();
+    }
+    if (process.env.EMAIL_USER && verifiedSenders.includes(process.env.EMAIL_USER.trim().toLowerCase())) {
+        return process.env.EMAIL_USER.trim();
+    }
+    return 'vitabsquare@gmail.com';
+};
+
 const otpStore = {};
 
 //login
@@ -174,10 +187,12 @@ exports.sendOTP = async (req, res) => {
 
         // Send Email using Brevo REST API
         const https = require('https');
+        const senderEmail = getBrevoSenderEmail();
         const payloadString = JSON.stringify({
-            sender: { name: "VTAB Square", email: process.env.EMAIL_USER },
+            sender: { name: "VTAB Square", email: senderEmail },
             to: [{ email: email }],
             subject: "🔐 Your OTP — VTAB Square Invoice",
+            textContent: `Your VTAB Square verification code is: ${otp}. This OTP will expire in 10 minutes.`,
             htmlContent: `
                 <div style="font-family: Inter, sans-serif; max-width:480px;margin:auto;padding:20px;border:1px solid #eee;border-radius:10px">
                     <h2>Password Reset OTP</h2>
@@ -263,8 +278,9 @@ exports.sendInvoiceEmail = async (req, res) => {
         }
 
         // Use Brevo REST API
+        const senderEmail = getBrevoSenderEmail();
         const brevoPayload = {
-            sender: { name: "VTAB Square", email: process.env.EMAIL_USER },
+            sender: { name: "VTAB Square", email: senderEmail },
             to: to,
             cc: cc.length > 0 ? cc : undefined,
             bcc: bcc.length > 0 ? bcc : undefined,
